@@ -1,0 +1,16 @@
+[Unit]
+Description=Party-cipate Discord Bot
+After=network.target pm-api.service
+Wants=pm-api.service
+
+[Service]
+Type=simple
+User=nolan
+WorkingDirectory=/home/nolan/DiscordBotParty-cipate
+ExecStart=/usr/bin/node src/index.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

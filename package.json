@@ -1,0 +1,25 @@
+{
+  "name": "party-cipate-discord-bot",
+  "version": "1.0.0",
+  "description": "Bot Discord branché sur le système Party-cipate (pm-api). Crée automatiquement un compte (sans mot de passe) lorsqu'un membre utilise une commande.",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "deploy": "node src/deploy-commands.js"
+  },
+  "keywords": [
+    "discord",
+    "discord.js",
+    "party-cipate",
+    "bot"
+  ],
+  "author": "NonoIce",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.7.7",
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.5"
+  }
+}
