@@ -19,6 +19,20 @@ client.once(Events.ClientReady, (c) => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
+  // Menus déroulants (flux guidé /setup : production + salon).
+  if (interaction.isAnySelectMenu()) {
+    if (interaction.customId.startsWith('setup:')) {
+      const command = commands.get('setup');
+      try {
+        await command?.handleComponent?.(interaction);
+      } catch (err) {
+        console.error('Erreur composant /setup :', err);
+        await safeReply(interaction, '❌ Une erreur est survenue.');
+      }
+    }
+    return;
+  }
+
   // Boutons (inscription/désinscription sur les embeds d'événement).
   if (interaction.isButton()) {
     if (interaction.customId.startsWith('evt:')) {

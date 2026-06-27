@@ -40,18 +40,24 @@ Flux d'une commande :
 | `/supprimer-event <event>` | Supprime un de tes événements (avec confirmation). | Organisateur |
 | `/tirage <event>` | Lance le tirage au sort (avec confirmation). | Organisateur |
 | `/gestion` | Tableau de bord de tes événements créés (stats). | Tous |
-| `/config-event-announcements [salon] [desactiver]` | Configure le salon d'annonce automatique des nouveaux événements. | Admin serveur (Gérer le serveur) |
+| `/setup` | Assistant guidé : choisit la production puis le salon d'annonces (menus déroulants). | Admin serveur (Gérer le serveur) |
+| `/connect statut` | Affiche la production connectée au serveur. | Admin serveur (Gérer le serveur) |
+| `/connect reset` | Déconnecte le serveur de sa production (stoppe les annonces). | Admin serveur (Gérer le serveur) |
 
 ### Annonces automatiques des nouveaux événements
 
-Un admin du serveur Discord lance `/config-event-announcements` (option `salon`,
-sinon le salon courant) pour choisir où poster les annonces. Le bot **surveille
-l'API toutes les 30 s** et publie automatiquement un message (embed + boutons
-S'inscrire / J'aime) dès qu'un nouvel événement est créé — qu'il vienne du
-launcher **ou** de `/creer-event`. `desactiver: true` coupe les annonces.
+Un admin du serveur Discord lance **`/setup`** : un premier menu propose les
+productions Party-cipate, un second propose les salons texte du serveur. Le bot
+enregistre la production **et** le salon en une fois.
 
-La config (salon par serveur + dernier événement annoncé) est persistée dans
-`data/config.json`.
+Tant que `/setup` n'a pas été fait, le bot **n'annonce rien**. Une fois configuré,
+il **surveille l'API toutes les 30 s** et publie automatiquement un message
+(embed + boutons S'inscrire / J'aime) dès qu'un nouvel événement **de la
+production connectée** est créé — qu'il vienne du launcher **ou** de
+`/creer-event`. `/connect reset` coupe les annonces.
+
+La config (production + salon par serveur, et dernier événement annoncé) est
+persistée dans `data/config.json`.
 
 Les contrôles d'accès (admin, super-admin, propriétaire d'event) sont appliqués
 **côté API**. Les commandes d'événements utilisent les routes party-cipate
