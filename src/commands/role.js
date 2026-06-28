@@ -1,6 +1,7 @@
 import { SlashCommandBuilder } from 'discord.js';
-import { resolveUser, getProfile, setMemberRole, apiError } from '../api.js';
+import { resolveUser, setMemberRole } from '../api.js';
 import { roleLabel } from '../roles.js';
+import { PERM, formatApiError } from '../errors.js';
 
 export const data = new SlashCommandBuilder()
   .setName('role')
@@ -43,11 +44,6 @@ export async function execute(interaction) {
       `✅ ${targetUser.username} est maintenant **${roleLabel(role)}** sur Party-cipate.`
     );
   } catch (err) {
-    const status = err.response?.status;
-    if (status === 403) {
-      await interaction.editReply('❌ Réservé aux administrateurs Party-cipate.');
-      return;
-    }
-    await interaction.editReply(`❌ ${apiError(err)}`);
+    await interaction.editReply(formatApiError(err, { fallback403: PERM.platformAdmin }));
   }
 }

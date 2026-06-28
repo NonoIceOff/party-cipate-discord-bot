@@ -8,6 +8,7 @@ import {
   EmbedBuilder
 } from 'discord.js';
 import { listProductions, apiError } from '../api.js';
+import { PERM } from '../errors.js';
 import {
   setGuildProduction,
   setAnnouncementChannel,
@@ -80,6 +81,11 @@ export async function execute(interaction) {
     return;
   }
 
+  if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+    await interaction.reply({ content: PERM.manageGuild, ephemeral: true });
+    return;
+  }
+
   await interaction.deferReply({ ephemeral: true });
 
   let productions;
@@ -135,6 +141,14 @@ export async function execute(interaction) {
 
 // Gère les sélections du flux /setup (menus déroulants).
 export async function handleComponent(interaction) {
+  if (
+    interaction.guildId &&
+    !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)
+  ) {
+    await interaction.reply({ content: PERM.manageGuild, ephemeral: true });
+    return;
+  }
+
   // Étape 1 → l'utilisateur a choisi une production : on propose le salon.
   if (interaction.customId === 'setup:prod') {
     const productionId = interaction.values?.[0];
@@ -216,7 +230,7 @@ export async function handleComponent(interaction) {
     const perms = channel && me ? channel.permissionsFor(me) : null;
     if (perms && !perms.has(PermissionFlagsBits.SendMessages)) {
       await interaction.editReply({
-        content: `❌ Je n’ai pas la permission d’écrire dans <#${channelId}>. Donne-moi l’accès puis relance \`/setup\`.`,
+        content: PERM.botSendMessages(channelId),
         embeds: [],
         components: []
       });

@@ -1,7 +1,8 @@
 import { SlashCommandBuilder } from 'discord.js';
-import { resolveUser, getEvent, apiError } from '../api.js';
+import { resolveUser, getEvent } from '../api.js';
 import { autocompleteEvents } from '../autocomplete.js';
 import { canManageEvent, getManageableEvents } from '../permissions.js';
+import { PERM, formatApiError } from '../errors.js';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 
 export const data = new SlashCommandBuilder()
@@ -35,9 +36,7 @@ export async function execute(interaction) {
       return;
     }
     if (!(await canManageEvent(token, user, event, 'can_draw'))) {
-      await interaction.editReply(
-        '❌ Tu n\'as pas le droit de lancer le tirage de cet événement.'
-      );
+      await interaction.editReply(PERM.draw);
       return;
     }
     if (event.draw_done) {
@@ -60,6 +59,6 @@ export async function execute(interaction) {
       components: [row]
     });
   } catch (err) {
-    await interaction.editReply(`❌ ${apiError(err)}`);
+    await interaction.editReply(formatApiError(err, { fallback403: PERM.draw }));
   }
 }

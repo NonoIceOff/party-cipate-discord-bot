@@ -1,8 +1,9 @@
 import { SlashCommandBuilder } from 'discord.js';
-import { resolveUser, getEvent, updateEvent, apiError } from '../api.js';
+import { resolveUser, getEvent, updateEvent } from '../api.js';
 import { buildEventView } from '../event-view.js';
 import { autocompleteEvents } from '../autocomplete.js';
 import { canManageEvent, getManageableEvents } from '../permissions.js';
+import { PERM, formatApiError } from '../errors.js';
 
 export const data = new SlashCommandBuilder()
   .setName('inscriptions')
@@ -48,9 +49,7 @@ export async function execute(interaction) {
       return;
     }
     if (!(await canManageEvent(token, user, event, 'can_edit_events'))) {
-      await interaction.editReply(
-        '❌ Tu n\'as pas le droit de gérer les inscriptions de cet événement.'
-      );
+      await interaction.editReply(PERM.inscriptions);
       return;
     }
     if (event.draw_done) {
@@ -68,6 +67,6 @@ export async function execute(interaction) {
       components: view ? view.components : []
     });
   } catch (err) {
-    await interaction.editReply(`❌ ${apiError(err)}`);
+    await interaction.editReply(formatApiError(err, { fallback403: PERM.inscriptions }));
   }
 }

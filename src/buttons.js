@@ -5,9 +5,11 @@ import {
   likeEvent,
   deleteEvent,
   drawLottery,
-  apiError
+  getEvent
 } from './api.js';
 import { buildEventView } from './event-view.js';
+import { canManageEvent } from './permissions.js';
+import { PERM, formatApiError } from './errors.js';
 
 // Met à jour le message d'origine (embed + boutons) après une action.
 async function refreshMessage(interaction, eventId, ctx) {
@@ -60,6 +62,15 @@ export async function handleEventButton(interaction) {
         return;
       }
       case 'draw-yes': {
+        const event = await getEvent(eventId);
+        if (!event) {
+          await interaction.editReply({ content: `❌ Événement #${eventId} introuvable.`, components: [] });
+          return;
+        }
+        if (!(await canManageEvent(token, user, event, 'can_draw'))) {
+          await interaction.editReply({ content: PERM.draw, components: [] });
+          return;
+        }
         const result = await drawLottery(token, eventId);
         await refreshMessage(interaction, eventId, ctx);
         await interaction.editReply({
@@ -69,6 +80,15 @@ export async function handleEventButton(interaction) {
         return;
       }
       case 'delete-yes': {
+        const event = await getEvent(eventId);
+        if (!event) {
+          await interaction.editReply({ content: `❌ Événement #${eventId} introuvable.`, components: [] });
+          return;
+        }
+        if (!(await canManageEvent(token, user, event, 'can_edit_events'))) {
+          await interaction.editReply({ content: PERM.deleteEvent, components: [] });
+          return;
+        }
         await deleteEvent(token, eventId);
         // L'événement n'existe plus : on retire l'embed d'origine.
         if (interaction.message?.editable) {
@@ -83,7 +103,9 @@ export async function handleEventButton(interaction) {
         await interaction.editReply('❌ Action inconnue.');
     }
   } catch (err) {
-    const msg = `❌ ${apiError(err)}`;
+    const fallback =
+      action === 'draw-yes' ? PERM.draw : action === 'delete-yes' ? PERM.deleteEvent : undefined;
+    const msg = formatApiError(err, { fallback403: fallback });
     if (isConfirm) {
       await interaction.editReply({ content: msg, components: [] });
     } else {

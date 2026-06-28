@@ -2,13 +2,13 @@ import { SlashCommandBuilder } from 'discord.js';
 import {
   resolveUser,
   getEvent,
-  updateEvent,
-  apiError
+  updateEvent
 } from '../api.js';
 import { buildEventView } from '../event-view.js';
 import { parseEventDate } from '../events-ui.js';
 import { autocompleteEvents } from '../autocomplete.js';
 import { canManageEvent, getManageableEvents } from '../permissions.js';
+import { PERM, formatApiError } from '../errors.js';
 
 export const data = new SlashCommandBuilder()
   .setName('modifier-event')
@@ -100,7 +100,7 @@ export async function execute(interaction) {
       return;
     }
     if (!(await canManageEvent(token, user, existing, 'can_edit_events'))) {
-      await interaction.editReply('❌ Tu n\'as pas le droit de modifier cet événement.');
+      await interaction.editReply(PERM.editEvent);
       return;
     }
 
@@ -112,6 +112,6 @@ export async function execute(interaction) {
       components: view ? view.components : []
     });
   } catch (err) {
-    await interaction.editReply(`❌ ${apiError(err)}`);
+    await interaction.editReply(formatApiError(err, { fallback403: PERM.editEvent }));
   }
 }

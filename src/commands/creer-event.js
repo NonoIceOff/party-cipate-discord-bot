@@ -1,7 +1,8 @@
 import { SlashCommandBuilder } from 'discord.js';
-import { resolveUser, createEvent, apiError } from '../api.js';
+import { resolveUser, createEvent } from '../api.js';
 import { buildEventView } from '../event-view.js';
 import { parseEventDate } from '../events-ui.js';
+import { PERM, formatApiError } from '../errors.js';
 
 export const data = new SlashCommandBuilder()
   .setName('creer-event')
@@ -78,6 +79,6 @@ export async function execute(interaction) {
       components: view ? view.components : []
     });
   } catch (err) {
-    await interaction.editReply(`❌ ${apiError(err)}`);
+    await interaction.editReply(formatApiError(err, { fallback403: PERM.createEvent }));
   }
 }

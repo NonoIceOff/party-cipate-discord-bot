@@ -1,5 +1,6 @@
 import { SlashCommandBuilder } from 'discord.js';
-import { resolveUser, postMessage, apiError } from '../api.js';
+import { resolveUser, postMessage } from '../api.js';
+import { PERM, formatApiError } from '../errors.js';
 
 export const data = new SlashCommandBuilder()
   .setName('annonce')
@@ -22,6 +23,6 @@ export async function execute(interaction) {
     await postMessage(token, 'annonces', content);
     await interaction.editReply('✅ Annonce publiée dans #annonces sur Party-cipate.');
   } catch (err) {
-    await interaction.editReply(`❌ ${apiError(err)}`);
+    await interaction.editReply(formatApiError(err, { fallback403: PERM.platformAdmin }));
   }
 }

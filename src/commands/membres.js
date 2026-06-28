@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { resolveUser, listMembers, apiError } from '../api.js';
+import { resolveUser, listMembers } from '../api.js';
 import { roleLabel } from '../roles.js';
+import { PERM, formatApiError } from '../errors.js';
 
 export const data = new SlashCommandBuilder()
   .setName('membres')
@@ -35,12 +36,6 @@ export async function execute(interaction) {
 
     await interaction.editReply({ embeds: [embed] });
   } catch (err) {
-    // 403 = pas admin : message clair plutôt que stack technique.
-    const status = err.response?.status;
-    if (status === 403) {
-      await interaction.editReply('❌ Réservé aux administrateurs Party-cipate.');
-      return;
-    }
-    await interaction.editReply(`❌ ${apiError(err)}`);
+    await interaction.editReply(formatApiError(err, { fallback403: PERM.platformAdmin }));
   }
 }
