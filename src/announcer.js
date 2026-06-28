@@ -1,15 +1,17 @@
 import { listEvents } from './api.js';
 import {
   getAnnouncementChannels,
-  getLastEventId,
-  setLastEventId
+  isAnnouncerInitialized,
+  seedAnnouncerFromEvents,
+  getEventStates,
+  setEventStatesBatch
 } from './store.js';
 import { announcementEmbed, eventButtons } from './events-ui.js';
 
 const POLL_INTERVAL_MS = 30_000;
 
-function maxEventId(events) {
-  return events.reduce((m, e) => Math.max(m, Number(e.id) || 0), 0);
+function registrationsOpen(event) {
+  return event.is_open !== false;
 }
 
 async function poll(client) {
@@ -21,32 +23,65 @@ async function poll(client) {
   }
   if (!events.length) return;
 
-  const last = getLastEventId();
-
-  // Première exécution (ou état neuf) : on fixe la référence sans rien annoncer
-  // pour ne pas spammer avec les événements déjà existants.
-  if (last === 0) {
-    setLastEventId(maxEventId(events));
+  // Premier passage : on enregistre l'existant sans rien annoncer.
+  if (!isAnnouncerInitialized()) {
+    seedAnnouncerFromEvents(events);
     return;
   }
 
-  const fresh = events
-    .filter((e) => Number(e.id) > last)
-    .sort((a, b) => Number(a.id) - Number(b.id));
-  if (!fresh.length) return;
+  const states = getEventStates();
+  // Filet de sécurité : état initialisé mais vide → seed sans annoncer.
+  if (!Object.keys(states).length) {
+    seedAnnouncerFromEvents(events);
+    return;
+  }
 
   const targets = getAnnouncementChannels();
+  if (!targets.length) return;
 
-  // On parcourt salon par salon. Tant qu'un serveur n'a pas été connecté à une
-  // production via /connect, il n'annonce RIEN (même si un salon est configuré).
-  // Une fois connecté, il ne reçoit que les événements de cette production.
-  for (const { channelId, productionId } of targets) {
-    if (!productionId) continue;
+  const toAnnounce = [];
 
-    const toAnnounce = fresh.filter(
-      (e) => String(e.production_id) === String(productionId)
+  // On annonce quand les inscriptions s'ouvrent (et pas encore postées), OU
+  // quand une annonce a été forcée manuellement (announce_requested_at récent)
+  // — dans ce cas on (re)poste même si l'événement a déjà été annoncé.
+  for (const event of events) {
+    const id = String(event.id);
+    const open = registrationsOpen(event);
+    const prev = states[id];
+    const reqAt = event.announce_requested_at ? String(event.announce_requested_at) : null;
+    const isForced = !!reqAt && reqAt !== (prev?.forcedAt || null);
+    if (isForced || (open && !prev?.announced)) {
+      toAnnounce.push(event);
+    }
+  }
+
+  if (!toAnnounce.length) {
+    const sync = {};
+    for (const event of events) {
+      const id = String(event.id);
+      const prev = states[id];
+      const open = registrationsOpen(event);
+      const forcedAt = prev?.forcedAt || null;
+      if (!prev) {
+        sync[id] = { isOpen: open, announced: false, forcedAt };
+      } else if (prev.isOpen !== open) {
+        sync[id] = { isOpen: open, announced: prev.announced, forcedAt };
+      }
+    }
+    setEventStatesBatch(sync);
+    return;
+  }
+
+  toAnnounce.sort((a, b) => Number(a.id) - Number(b.id));
+  const announcedOk = new Set();
+
+  for (const { channelId, productionIds } of targets) {
+    if (!productionIds?.length) continue;
+
+    const matching = toAnnounce.filter((e) =>
+      productionIds.some((pid) => String(e.production_id) === String(pid))
     );
-    if (!toAnnounce.length) continue;
+    if (!matching.length) continue;
 
     let channel;
     try {
@@ -57,27 +92,44 @@ async function poll(client) {
     }
     if (!channel?.isTextBased()) continue;
 
-    for (const event of toAnnounce) {
+    for (const event of matching) {
+      const id = String(event.id);
       try {
         await channel.send({
           embeds: [announcementEmbed(event)],
           components: eventButtons(event, {})
         });
+        announcedOk.add(id);
       } catch (err) {
         console.error(`Annonce event #${event.id} -> salon ${channelId} échouée :`, err.message);
       }
     }
   }
 
-  setLastEventId(Math.max(last, maxEventId(events)));
+  const batch = {};
+  for (const event of events) {
+    const id = String(event.id);
+    const open = registrationsOpen(event);
+    const prev = states[id];
+    const reqAt = event.announce_requested_at ? String(event.announce_requested_at) : null;
+    const announced = !!prev?.announced || announcedOk.has(id);
+    // forcedAt n'avance que si la demande forcée a effectivement été postée.
+    const prevForced = prev?.forcedAt || null;
+    const forcedAt = announcedOk.has(id) && reqAt ? reqAt : prevForced;
+    if (!prev || prev.isOpen !== open || prev.announced !== announced || prevForced !== forcedAt) {
+      batch[id] = { isOpen: open, announced, forcedAt };
+    }
+  }
+  setEventStatesBatch(batch);
 }
 
-// Démarre la surveillance des nouveaux événements.
+// Démarre la surveillance des ouvertures d'inscriptions.
 export function startAnnouncer(client) {
-  // Initialise la référence au démarrage (sans annoncer l'existant).
   void poll(client);
   setInterval(() => {
     void poll(client);
   }, POLL_INTERVAL_MS);
-  console.log(`📣 Annonceur d'événements actif (toutes les ${POLL_INTERVAL_MS / 1000}s)`);
+  console.log(
+    `📣 Annonceur d'ouvertures d'inscriptions actif (toutes les ${POLL_INTERVAL_MS / 1000}s)`
+  );
 }

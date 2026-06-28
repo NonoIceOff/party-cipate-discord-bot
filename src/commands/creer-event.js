@@ -35,6 +35,12 @@ export const data = new SlashCommandBuilder()
   .addStringOption((o) =>
     o.setName('image').setDescription('URL d\'une image.').setMaxLength(500)
   )
+  .addStringOption((o) =>
+    o
+      .setName('temps_de_tournage')
+      .setDescription('Durée de tournage (ex: 45 minutes).')
+      .setMaxLength(100)
+  )
   .addBooleanOption((o) =>
     o
       .setName('ouvert')
@@ -50,6 +56,7 @@ export async function execute(interaction) {
   const candidats = interaction.options.getInteger('candidats') || 1;
   const dateRaw = interaction.options.getString('date');
   const image = interaction.options.getString('image') || undefined;
+  const duration = interaction.options.getString('temps_de_tournage') || undefined;
   const ouvert = interaction.options.getBoolean('ouvert');
 
   const startsAt = parseEventDate(dateRaw);
@@ -67,6 +74,7 @@ export async function execute(interaction) {
       description,
       long_description: longDescription,
       image_url: image,
+      duration,
       starts_at: startsAt || undefined,
       is_open: ouvert ?? true,
       max_candidates: candidats

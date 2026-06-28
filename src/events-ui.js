@@ -5,6 +5,15 @@ import {
   ButtonStyle
 } from 'discord.js';
 
+// URL publique du site (pour le lien "Plus d'informations").
+const SITE_URL = (process.env.SITE_URL || 'https://party-cipate-next.vercel.app').replace(
+  /\/$/,
+  ''
+);
+
+// Nombre maximum de candidatures listées dans l'embed (limite Discord 1024 car.).
+const MAX_LISTED = 20;
+
 // Une date party-cipate peut être absurde (ex: année +111111) si mal saisie :
 // on l'affiche prudemment.
 export function formatEventDate(iso) {
@@ -60,53 +69,80 @@ export function eventLine(event) {
     .join('\n');
 }
 
+// Construit le champ listant les candidatures (demandes ou candidats retenus).
+function candidaturesField(event, participants) {
+  const list = Array.isArray(participants) ? participants : [];
+
+  if (event.draw_done) {
+    const winners = list.filter((p) => p.is_selected || p.is_valid);
+    const max = Number(event.max_candidates) > 0 ? `/${event.max_candidates}` : '';
+    const value = winners.length
+      ? winners
+          .slice(0, MAX_LISTED)
+          .map((p) => `• ${p.username || 'Utilisateur'}`)
+          .join('\n')
+      : 'Aucun candidat retenu.';
+    return {
+      name: `Candidats retenus (${winners.length}${max})`,
+      value: value.slice(0, 1024)
+    };
+  }
+
+  const state = isEventJoinable(event) ? 'ouvertes' : 'fermées';
+  let value;
+  if (list.length) {
+    const lines = list.slice(0, MAX_LISTED).map((p) => `• ${p.username || 'Utilisateur'}`);
+    if (list.length > MAX_LISTED) lines.push(`… +${list.length - MAX_LISTED} autre(s)`);
+    value = lines.join('\n');
+  } else {
+    const count = event.participants_count ?? 0;
+    value = count > 0 ? `${count} demande(s) de candidature` : 'Aucune demande pour le moment.';
+  }
+  return { name: `Demandes de candidatures (${state})`, value: value.slice(0, 1024) };
+}
+
 // Embed détaillé d'un événement.
 // participants : liste optionnelle [{ username, is_selected }]
-// likes : nombre de J'aime
-export function eventEmbed(event, { registered, likes, participants } = {}) {
+// likes : nombre de J'aime (conservé pour compat, non affiché dans la maquette)
+export function eventEmbed(event, { participants } = {}) {
+  const title = event.production_name
+    ? `${event.name} (${event.production_name})`
+    : event.name;
+
   const embed = new EmbedBuilder()
-    .setTitle(`#${event.id} — ${event.name}`)
+    .setTitle(title)
     .setColor(isEventJoinable(event) ? 0x22c55e : 0x6b7280)
-    .setDescription(event.long_description || event.description || '*Aucune description.*')
-    .addFields(
-      { name: 'Statut', value: eventStatus(event), inline: true },
-      {
-        name: 'Demandes de participations',
-        value: `${event.participants_count ?? participants?.length ?? 0}${
-          Number(event.max_candidates) > 0 ? ` / ${event.max_candidates}` : ''
-        }`,
-        inline: true
-      },
-      { name: '❤️ J\'aime', value: String(likes ?? event.votes_count ?? 0), inline: true },
-      { name: '📅 Date', value: formatEventDate(event.starts_at), inline: false }
-    );
+    .setDescription(event.long_description || event.description || '*Aucune description.*');
 
-  if (typeof registered === 'boolean') {
-    embed.addFields({
-      name: 'Ton inscription',
-      value: registered ? '✅ Tu es inscrit(e)' : '➖ Tu n\'es pas inscrit(e)',
-      inline: false
-    });
+  const fields = [];
+
+  // Temps de tournage (optionnel : seulement si l'événement le renseigne).
+  if (event.duration) {
+    fields.push({ name: 'Temps de tournage', value: String(event.duration), inline: true });
   }
 
-  // Liste des demandes / candidats retenus (bornée pour rester sous la limite Discord).
-  if (Array.isArray(participants) && participants.length) {
-    const lines = participants.slice(0, 15).map((p) => {
-      const name = p.username || 'Utilisateur';
-      return p.is_selected ? `✅ **${name}** — Candidat` : `• ${name}`;
-    });
-    if (participants.length > 15) lines.push(`… +${participants.length - 15} autre(s)`);
-    embed.addFields({
-      name: event.draw_done ? 'Candidats retenus' : 'Demandes de participations',
-      value: lines.join('\n').slice(0, 1024),
-      inline: false
-    });
-  }
+  fields.push({
+    name: 'Date de tournage',
+    value: formatEventDate(event.starts_at),
+    inline: true
+  });
 
+  fields.push(candidaturesField(event, participants));
+
+  fields.push({
+    name: "Plus d'informations via party-cipate",
+    value: `${SITE_URL}/event/${event.id}`
+  });
+
+  embed.addFields(fields);
+
+  if (event.image_url) embed.setThumbnail(event.image_url);
   if (event.creator_username) {
-    embed.setFooter({ text: `Organisé par ${event.creator_username}` });
+    embed.setFooter({
+      text: `Organisé par ${event.creator_username}`,
+      iconURL: event.profile_picture || undefined
+    });
   }
-  if (event.image_url) embed.setImage(event.image_url);
   return embed;
 }
 

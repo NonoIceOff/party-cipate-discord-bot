@@ -10,14 +10,14 @@ import {
 import { listProductions, apiError } from '../api.js';
 import { PERM } from '../errors.js';
 import {
-  setGuildProduction,
+  setGuildProductions,
   setAnnouncementChannel,
-  clearGuildProduction,
+  clearGuildProductions,
   clearAnnouncementChannel,
-  getGuildProduction
+  getGuildProductions
 } from '../store.js';
 
-const CHANNEL_PREFIX = 'setup:chan:';
+const CHANNEL_ID = 'setup:chan';
 const DISCONNECT_VALUE = '__disconnect__';
 const ACCENT = 0xa855f7;
 
@@ -27,13 +27,20 @@ export const data = new SlashCommandBuilder()
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
   .setDMPermission(false);
 
+function formatProdNames(list) {
+  return list
+    .map((p) => `**${p.productionName ?? p.name ?? p.productionId ?? p.id}**`)
+    .join(', ');
+}
+
 function stepProductionEmbed(current) {
   const base =
-    'Choisis la **production** à connecter à ce serveur.\n' +
-    'Seuls les événements de cette production seront annoncés ici.';
-  const status = current
-    ? `\n\n🔗 Actuellement connecté à : **${current.productionName ?? current.productionId}**`
-    : '';
+    'Choisis **une ou plusieurs productions** à connecter à ce serveur.\n' +
+    'Seuls les événements de ces productions seront annoncés ici.';
+  const status =
+    current && current.length
+      ? `\n\n🔗 Actuellement connecté à : ${formatProdNames(current)}`
+      : '';
   return new EmbedBuilder()
     .setColor(ACCENT)
     .setTitle('⚙️ Configuration — Étape 1/2')
@@ -50,24 +57,25 @@ function disconnectedEmbed() {
     );
 }
 
-function stepChannelEmbed(productionName) {
+function stepChannelEmbed(productionNames) {
+  const names = productionNames.map((n) => `**${n}**`).join(', ');
   return new EmbedBuilder()
     .setColor(ACCENT)
     .setTitle('⚙️ Configuration — Étape 2/2')
     .setDescription(
-      `Production : **${productionName}**\n\n` +
+      `Productions : ${names}\n\n` +
         'Choisis maintenant le **salon** où poster les annonces de nouveaux événements.'
     );
 }
 
-function doneEmbed(productionName, channelId) {
+function doneEmbed(productions, channelId) {
   return new EmbedBuilder()
     .setColor(0x22c55e)
     .setTitle('✅ Configuration terminée')
     .setDescription(
-      `Production connectée : **${productionName}**\n` +
+      `Productions connectées : ${formatProdNames(productions)}\n` +
         `Salon d’annonces : <#${channelId}>\n\n` +
-        'Les nouveaux événements de cette production seront automatiquement annoncés ici.\n' +
+        'Les nouveaux événements de ces productions seront automatiquement annoncés ici.\n' +
         '_Pour reconfigurer ou déconnecter : relance `/setup`._'
     );
 }
@@ -103,13 +111,14 @@ export async function execute(interaction) {
     return;
   }
 
-  const current = getGuildProduction(interaction.guildId);
+  const current = getGuildProductions(interaction.guildId);
+  const currentIds = new Set(current.map((c) => String(c.productionId)));
 
   const options = productions.slice(0, 24).map((p) => {
     const opt = {
       label: String(p.name ?? 'Sans nom').slice(0, 100),
       value: String(p.id),
-      default: current ? String(current.productionId) === String(p.id) : false
+      default: currentIds.has(String(p.id))
     };
     if (p.description) {
       opt.description = String(p.description).slice(0, 100);
@@ -118,7 +127,7 @@ export async function execute(interaction) {
   });
 
   // Si déjà configuré, on propose de se déconnecter directement depuis le menu.
-  if (current) {
+  if (current.length) {
     options.push({
       label: '🔌 Déconnecter ce serveur',
       value: DISCONNECT_VALUE,
@@ -129,7 +138,9 @@ export async function execute(interaction) {
   const row = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId('setup:prod')
-      .setPlaceholder('Sélectionne ta production…')
+      .setPlaceholder('Sélectionne une ou plusieurs productions…')
+      .setMinValues(1)
+      .setMaxValues(options.length)
       .addOptions(options)
   );
 
@@ -149,10 +160,10 @@ export async function handleComponent(interaction) {
     return;
   }
 
-  // Étape 1 → l'utilisateur a choisi une production : on propose le salon.
+  // Étape 1 → l'utilisateur a choisi ses productions : on propose le salon.
   if (interaction.customId === 'setup:prod') {
-    const productionId = interaction.values?.[0];
-    if (!productionId) {
+    const values = interaction.values || [];
+    if (!values.length) {
       await interaction.update({
         content: '❌ Sélection invalide, relance `/setup`.',
         embeds: [],
@@ -161,26 +172,33 @@ export async function handleComponent(interaction) {
       return;
     }
 
-    // Déconnexion demandée depuis le menu.
-    if (productionId === DISCONNECT_VALUE) {
-      clearGuildProduction(interaction.guildId);
+    // Déconnexion demandée depuis le menu (prioritaire sur le reste).
+    if (values.includes(DISCONNECT_VALUE)) {
+      clearGuildProductions(interaction.guildId);
       clearAnnouncementChannel(interaction.guildId);
       await interaction.update({ embeds: [disconnectedEmbed()], components: [] });
       return;
     }
 
-    let productionName = productionId;
+    // Résout les noms des productions sélectionnées (repli sur l'id).
+    let selected = values.map((id) => ({ id, name: id }));
     try {
       const productions = await listProductions();
-      const prod = productions.find((p) => String(p.id) === String(productionId));
-      if (prod?.name) productionName = prod.name;
+      selected = values.map((id) => {
+        const prod = productions.find((p) => String(p.id) === String(id));
+        return { id, name: prod?.name || id };
+      });
     } catch {
-      /* on garde l'id en repli, ce n'est qu'un affichage */
+      /* on garde les ids en repli, ce n'est qu'un affichage */
     }
+
+    // On enregistre tout de suite les productions ; l'étape 2 ne fait
+    // qu'ajouter le salon (évite de transporter les ids dans le customId).
+    setGuildProductions(interaction.guildId, selected);
 
     const row = new ActionRowBuilder().addComponents(
       new ChannelSelectMenuBuilder()
-        .setCustomId(`${CHANNEL_PREFIX}${productionId}`)
+        .setCustomId(CHANNEL_ID)
         .setPlaceholder('Sélectionne le salon d’annonces…')
         .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
         .setMinValues(1)
@@ -188,36 +206,22 @@ export async function handleComponent(interaction) {
     );
 
     await interaction.update({
-      embeds: [stepChannelEmbed(productionName)],
+      embeds: [stepChannelEmbed(selected.map((s) => s.name))],
       components: [row]
     });
     return;
   }
 
-  // Étape 2 → l'utilisateur a choisi le salon : on enregistre tout.
-  if (interaction.customId.startsWith(CHANNEL_PREFIX)) {
-    const productionId = interaction.customId.slice(CHANNEL_PREFIX.length);
+  // Étape 2 → l'utilisateur a choisi le salon : on enregistre le salon.
+  if (interaction.customId === CHANNEL_ID) {
     const channelId = interaction.values?.[0];
 
-    // On accuse réception tôt : la résolution de la production passe par l'API.
     await interaction.deferUpdate();
 
-    let production;
-    try {
-      const productions = await listProductions();
-      production = productions.find((p) => String(p.id) === String(productionId));
-    } catch (err) {
+    const productions = getGuildProductions(interaction.guildId);
+    if (!productions.length) {
       await interaction.editReply({
-        content: `❌ ${apiError(err)}`,
-        embeds: [],
-        components: []
-      });
-      return;
-    }
-
-    if (!production) {
-      await interaction.editReply({
-        content: '❌ Production introuvable, relance `/setup`.',
+        content: '❌ Aucune production sélectionnée, relance `/setup`.',
         embeds: [],
         components: []
       });
@@ -237,12 +241,11 @@ export async function handleComponent(interaction) {
       return;
     }
 
-    setGuildProduction(interaction.guildId, production.id, production.name);
     setAnnouncementChannel(interaction.guildId, channelId);
 
     await interaction.editReply({
       content: '',
-      embeds: [doneEmbed(production.name, channelId)],
+      embeds: [doneEmbed(productions, channelId)],
       components: []
     });
   }

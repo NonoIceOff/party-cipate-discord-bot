@@ -45,6 +45,12 @@ export const data = new SlashCommandBuilder()
   .addStringOption((o) =>
     o.setName('image').setDescription('Nouvelle URL d\'image.').setMaxLength(500)
   )
+  .addStringOption((o) =>
+    o
+      .setName('temps_de_tournage')
+      .setDescription('Durée de tournage (ex: 45 minutes).')
+      .setMaxLength(100)
+  )
   .addBooleanOption((o) =>
     o.setName('ouvert').setDescription('Ouvrir/fermer les inscriptions.')
   );
@@ -68,6 +74,7 @@ export async function execute(interaction) {
   const candidats = interaction.options.getInteger('candidats');
   const dateRaw = interaction.options.getString('date');
   const image = interaction.options.getString('image');
+  const duration = interaction.options.getString('temps_de_tournage');
   const ouvert = interaction.options.getBoolean('ouvert');
 
   if (nom !== null) patch.name = nom;
@@ -75,6 +82,7 @@ export async function execute(interaction) {
   if (longDescription !== null) patch.long_description = longDescription;
   if (candidats !== null) patch.max_candidates = candidats;
   if (image !== null) patch.image_url = image;
+  if (duration !== null) patch.duration = duration;
   if (ouvert !== null) patch.is_open = ouvert;
   if (dateRaw !== null) {
     const startsAt = parseEventDate(dateRaw);
