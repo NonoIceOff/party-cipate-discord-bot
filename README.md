@@ -40,9 +40,7 @@ Flux d'une commande :
 | `/supprimer-event <event>` | Supprime un de tes événements (avec confirmation). | Organisateur |
 | `/tirage <event>` | Lance le tirage au sort (avec confirmation). | Organisateur |
 | `/gestion` | Tableau de bord de tes événements créés (stats). | Tous |
-| `/setup` | Assistant guidé : choisit la production puis le salon d'annonces (menus déroulants). | Admin serveur (Gérer le serveur) |
-| `/connect statut` | Affiche la production connectée au serveur. | Admin serveur (Gérer le serveur) |
-| `/connect reset` | Déconnecte le serveur de sa production (stoppe les annonces). | Admin serveur (Gérer le serveur) |
+| `/setup` | Assistant unique : choisit la production puis le salon d'annonces (menus déroulants), ou déconnecte le serveur. | Admin serveur (Gérer le serveur) |
 
 ### Annonces automatiques des nouveaux événements
 
@@ -54,7 +52,7 @@ Tant que `/setup` n'a pas été fait, le bot **n'annonce rien**. Une fois config
 il **surveille l'API toutes les 30 s** et publie automatiquement un message
 (embed + boutons S'inscrire / J'aime) dès qu'un nouvel événement **de la
 production connectée** est créé — qu'il vienne du launcher **ou** de
-`/creer-event`. `/connect reset` coupe les annonces.
+`/creer-event`. Relance `/setup` puis « 🔌 Déconnecter ce serveur » pour couper les annonces.
 
 La config (production + salon par serveur, et dernier événement annoncé) est
 persistée dans `data/config.json`.

@@ -8,9 +8,16 @@ import {
   EmbedBuilder
 } from 'discord.js';
 import { listProductions, apiError } from '../api.js';
-import { setGuildProduction, setAnnouncementChannel } from '../store.js';
+import {
+  setGuildProduction,
+  setAnnouncementChannel,
+  clearGuildProduction,
+  clearAnnouncementChannel,
+  getGuildProduction
+} from '../store.js';
 
 const CHANNEL_PREFIX = 'setup:chan:';
+const DISCONNECT_VALUE = '__disconnect__';
 const ACCENT = 0xa855f7;
 
 export const data = new SlashCommandBuilder()
@@ -19,13 +26,26 @@ export const data = new SlashCommandBuilder()
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
   .setDMPermission(false);
 
-function stepProductionEmbed() {
+function stepProductionEmbed(current) {
+  const base =
+    'Choisis la **production** à connecter à ce serveur.\n' +
+    'Seuls les événements de cette production seront annoncés ici.';
+  const status = current
+    ? `\n\n🔗 Actuellement connecté à : **${current.productionName ?? current.productionId}**`
+    : '';
   return new EmbedBuilder()
     .setColor(ACCENT)
     .setTitle('⚙️ Configuration — Étape 1/2')
+    .setDescription(base + status);
+}
+
+function disconnectedEmbed() {
+  return new EmbedBuilder()
+    .setColor(0x6b7280)
+    .setTitle('🔌 Serveur déconnecté')
     .setDescription(
-      'Choisis la **production** à connecter à ce serveur.\n' +
-        'Seuls les événements de cette production seront annoncés ici.'
+      'Ce serveur n’est plus connecté à aucune production. Aucune annonce ne sera postée.\n' +
+        '_Relance `/setup` pour le reconfigurer._'
     );
 }
 
@@ -47,7 +67,7 @@ function doneEmbed(productionName, channelId) {
       `Production connectée : **${productionName}**\n` +
         `Salon d’annonces : <#${channelId}>\n\n` +
         'Les nouveaux événements de cette production seront automatiquement annoncés ici.\n' +
-        '_Pour reconfigurer : relance `/setup`. Pour déconnecter : `/connect reset`._'
+        '_Pour reconfigurer ou déconnecter : relance `/setup`._'
     );
 }
 
@@ -77,16 +97,28 @@ export async function execute(interaction) {
     return;
   }
 
-  const options = productions.slice(0, 25).map((p) => {
+  const current = getGuildProduction(interaction.guildId);
+
+  const options = productions.slice(0, 24).map((p) => {
     const opt = {
       label: String(p.name ?? 'Sans nom').slice(0, 100),
-      value: String(p.id)
+      value: String(p.id),
+      default: current ? String(current.productionId) === String(p.id) : false
     };
     if (p.description) {
       opt.description = String(p.description).slice(0, 100);
     }
     return opt;
   });
+
+  // Si déjà configuré, on propose de se déconnecter directement depuis le menu.
+  if (current) {
+    options.push({
+      label: '🔌 Déconnecter ce serveur',
+      value: DISCONNECT_VALUE,
+      description: 'Ne plus annoncer d’événements ici.'
+    });
+  }
 
   const row = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
@@ -96,7 +128,7 @@ export async function execute(interaction) {
   );
 
   await interaction.editReply({
-    embeds: [stepProductionEmbed()],
+    embeds: [stepProductionEmbed(current)],
     components: [row]
   });
 }
@@ -112,6 +144,14 @@ export async function handleComponent(interaction) {
         embeds: [],
         components: []
       });
+      return;
+    }
+
+    // Déconnexion demandée depuis le menu.
+    if (productionId === DISCONNECT_VALUE) {
+      clearGuildProduction(interaction.guildId);
+      clearAnnouncementChannel(interaction.guildId);
+      await interaction.update({ embeds: [disconnectedEmbed()], components: [] });
       return;
     }
 
