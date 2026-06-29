@@ -153,12 +153,16 @@ export function announcementEmbed(event) {
   return embed;
 }
 
-// Boutons d'événement, identiques pour tout le monde. customId : evt:<action>:<eventId>.
-// L'inscription / désinscription / J'aime sont ouverts à tous les membres,
-// y compris l'organisateur. La gestion (ouvrir/fermer, tirage, suppression) se fait
-// exclusivement via les commandes (/inscriptions, /tirage, /supprimer-event) avec
-// contrôle des droits côté bot et côté API.
-export function eventButtons(event, { registered } = {}) {
+// Boutons d'événement, STRICTEMENT IDENTIQUES pour tout le monde.
+// customId : evt:<action>:<eventId>.
+//
+// On ne grise JAMAIS un bouton en fonction de l'utilisateur : le message est public
+// et partagé par tous les membres. C'est l'action déclenchée au clic qui gère
+// l'inscription/désinscription de la personne (l'API reste l'autorité finale).
+// Seul l'état de l'événement compte : quand l'événement est fermé (inscriptions
+// fermées ou tirage effectué), on désactive l'inscription et la désinscription.
+// Le bouton « J'aime » reste toujours actif.
+export function eventButtons(event) {
   const joinable = isEventJoinable(event);
 
   const memberRow = new ActionRowBuilder().addComponents(
@@ -166,12 +170,12 @@ export function eventButtons(event, { registered } = {}) {
       .setCustomId(`evt:join:${event.id}`)
       .setLabel('S\'inscrire')
       .setStyle(ButtonStyle.Success)
-      .setDisabled(!joinable || registered === true),
+      .setDisabled(!joinable),
     new ButtonBuilder()
       .setCustomId(`evt:leave:${event.id}`)
       .setLabel('Se désinscrire')
       .setStyle(ButtonStyle.Danger)
-      .setDisabled(Boolean(event.draw_done) || registered === false),
+      .setDisabled(!joinable),
     new ButtonBuilder()
       .setCustomId(`evt:like:${event.id}`)
       .setLabel('J\'aime')

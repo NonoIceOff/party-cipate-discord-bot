@@ -7,7 +7,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const dataDir = join(here, '..', 'data');
 const file = join(dataDir, 'config.json');
 
-let state = { guilds: {}, eventStates: {}, announcerInitialized: false };
+let state = { guilds: {}, eventStates: {}, announcerInitialized: false, eventMessages: {} };
 
 function load() {
   try {
@@ -20,6 +20,7 @@ function load() {
   if (!state || typeof state !== 'object') state = {};
   if (!state.guilds) state.guilds = {};
   if (!state.eventStates || typeof state.eventStates !== 'object') state.eventStates = {};
+  if (!state.eventMessages || typeof state.eventMessages !== 'object') state.eventMessages = {};
   if (typeof state.announcerInitialized !== 'boolean') {
     state.announcerInitialized = false;
   }
@@ -169,5 +170,52 @@ export function seedAnnouncerFromEvents(events) {
 export function setEventStatesBatch(updates) {
   if (!updates || !Object.keys(updates).length) return;
   state.eventStates = { ...(state.eventStates || {}), ...updates };
+  save();
+}
+
+// ───────────────────────── Messages d'inscription postés ─────────────────────────
+// On mémorise (de façon persistante) chaque message d'annonce/inscription posté par
+// le bot : { [eventId]: [{ channelId, messageId }] }. Cela permet, après un
+// redéploiement, de retrouver ces messages pour resynchroniser leurs boutons
+// (dégriser ceux qui ne devraient pas l'être, griser quand l'événement est fermé)
+// SANS perdre la mémoire des inscriptions déjà ouvertes.
+
+/** Mémorise un message d'inscription posté pour un événement (dédupliqué). */
+export function recordEventMessage(eventId, channelId, messageId) {
+  if (eventId == null || !channelId || !messageId) return;
+  const id = String(eventId);
+  const list = state.eventMessages[id] || [];
+  const ref = { channelId: String(channelId), messageId: String(messageId) };
+  if (!list.some((m) => m.channelId === ref.channelId && m.messageId === ref.messageId)) {
+    list.push(ref);
+    state.eventMessages[id] = list;
+    save();
+  }
+}
+
+/** Messages connus pour un événement : [{ channelId, messageId }]. */
+export function getEventMessages(eventId) {
+  return (state.eventMessages?.[String(eventId)] || []).slice();
+}
+
+/** Tous les messages connus, à plat : [{ eventId, channelId, messageId }]. */
+export function getAllEventMessages() {
+  const out = [];
+  for (const [eventId, list] of Object.entries(state.eventMessages || {})) {
+    for (const m of list || []) out.push({ eventId, ...m });
+  }
+  return out;
+}
+
+/** Oublie un message devenu inaccessible (supprimé, salon supprimé…). */
+export function forgetEventMessage(eventId, channelId, messageId) {
+  const id = String(eventId);
+  const list = state.eventMessages?.[id];
+  if (!list) return;
+  const next = list.filter(
+    (m) => !(m.channelId === String(channelId) && m.messageId === String(messageId))
+  );
+  if (next.length) state.eventMessages[id] = next;
+  else delete state.eventMessages[id];
   save();
 }
