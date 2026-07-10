@@ -8,9 +8,12 @@ import {
   recordEventMessage,
   getEventMessages,
   getAllEventMessages,
-  forgetEventMessage
+  forgetEventMessage,
+  getNotifiedAt,
+  setNotifiedAt
 } from './store.js';
 import { announcementEmbed, eventButtons } from './events-ui.js';
+import { runNotify } from './notifier.js';
 
 const POLL_INTERVAL_MS = 30_000;
 
@@ -140,6 +143,24 @@ async function poll(client) {
   if (!Object.keys(states).length) {
     seedAnnouncerFromEvents(events);
     return;
+  }
+
+  // Demandes de notification MP posées depuis le site (notify_requested_at) :
+  // indépendant des annonces de salon. On marque la demande AVANT l'envoi pour
+  // ne jamais la rejouer, même si l'envoi échoue en cours de route.
+  for (const event of events) {
+    const reqAt = event.notify_requested_at ? String(event.notify_requested_at) : null;
+    if (!reqAt || reqAt === getNotifiedAt(event.id)) continue;
+    setNotifiedAt(event.id, reqAt);
+    try {
+      const summary = await runNotify(client, event);
+      console.log(
+        `📨 Notifications MP event #${event.id} : ${summary.sent} envoyé(s), ` +
+          `${summary.unique} membre(s) uniques sur ${summary.reachedGuilds} serveur(s).`
+      );
+    } catch (err) {
+      console.error(`Notifications MP event #${event.id} échouées :`, err.message);
+    }
   }
 
   // Événements dont l'état ouvert/fermé a changé → resynchroniser les boutons

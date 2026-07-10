@@ -8,6 +8,7 @@ import { buildEventView } from '../event-view.js';
 import { parseEventDate } from '../events-ui.js';
 import { autocompleteEvents } from '../autocomplete.js';
 import { canManageEvent, getManageableEvents } from '../permissions.js';
+import { notifyButtonRow } from '../notifier.js';
 import { PERM, formatApiError } from '../errors.js';
 
 export const data = new SlashCommandBuilder()
@@ -93,11 +94,6 @@ export async function execute(interaction) {
     patch.starts_at = startsAt;
   }
 
-  if (Object.keys(patch).length === 0) {
-    await interaction.editReply('ℹ️ Aucune modification fournie. Renseigne au moins une option.');
-    return;
-  }
-
   try {
     const { token, user } = await resolveUser(interaction.user);
 
@@ -112,12 +108,19 @@ export async function execute(interaction) {
       return;
     }
 
-    await updateEvent(token, eventId, patch);
+    // Sans option : on affiche simplement le menu de gestion (fiche + bouton
+    // « Notifier par MP ») sans rien modifier.
+    const hasChanges = Object.keys(patch).length > 0;
+    if (hasChanges) await updateEvent(token, eventId, patch);
+
     const view = await buildEventView(eventId, { token, user });
+    const components = view ? [...view.components, notifyButtonRow(view.event)] : [];
     await interaction.editReply({
-      content: '✅ Événement mis à jour.',
+      content: hasChanges
+        ? '✅ Événement mis à jour.'
+        : 'ℹ️ Gestion de l\'événement. Renseigne des options pour le modifier, ou utilise le bouton ci-dessous.',
       embeds: view ? [view.embed] : [],
-      components: view ? view.components : []
+      components
     });
   } catch (err) {
     await interaction.editReply(formatApiError(err, { fallback403: PERM.editEvent }));
