@@ -12,7 +12,8 @@ let state = {
   eventStates: {},
   announcerInitialized: false,
   eventMessages: {},
-  notifyOptOuts: { all: [], productions: {} }
+  notifyOptOuts: { all: [], productions: {} },
+  notifyRequests: {}
 };
 
 function load() {
@@ -34,6 +35,7 @@ function load() {
   if (!state.notifyOptOuts.productions || typeof state.notifyOptOuts.productions !== 'object') {
     state.notifyOptOuts.productions = {};
   }
+  if (!state.notifyRequests || typeof state.notifyRequests !== 'object') state.notifyRequests = {};
   if (typeof state.announcerInitialized !== 'boolean') {
     state.announcerInitialized = false;
   }
@@ -180,6 +182,7 @@ export function getEventStates() {
  */
 export function seedAnnouncerFromEvents(events) {
   const next = { ...(state.eventStates || {}) };
+  const nextNotify = { ...(state.notifyRequests || {}) };
   for (const e of events) {
     const id = String(e.id);
     next[id] = {
@@ -189,9 +192,24 @@ export function seedAnnouncerFromEvents(events) {
       // la rejouer au démarrage.
       forcedAt: e.announce_requested_at ? String(e.announce_requested_at) : null
     };
+    // Baseline des demandes de notification MP : on marque l'existant comme déjà
+    // traité pour ne PAS renvoyer de MP au démarrage/redéploiement.
+    nextNotify[id] = e.notify_requested_at ? String(e.notify_requested_at) : null;
   }
   state.eventStates = next;
+  state.notifyRequests = nextNotify;
   state.announcerInitialized = true;
+  save();
+}
+
+/** Dernière demande de notification MP traitée pour un événement (ISO ou null). */
+export function getNotifiedAt(eventId) {
+  return state.notifyRequests?.[String(eventId)] || null;
+}
+
+/** Mémorise la demande de notification MP traitée pour un événement. */
+export function setNotifiedAt(eventId, ts) {
+  state.notifyRequests[String(eventId)] = ts ? String(ts) : null;
   save();
 }
 

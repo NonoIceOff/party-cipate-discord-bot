@@ -131,6 +131,18 @@ async function collectRecipients(client, event) {
   return { recipients, reachedGuilds };
 }
 
+/**
+ * Envoie les MP de notification pour un événement : collecte les destinataires
+ * (serveurs connectés à la production, dédoublonnés, liste blanche, opt-outs) puis
+ * envoie les MP. Utilisé par le bouton « Envoyer les MP » ET par l'annonceur quand
+ * le site pose notify_requested_at. Renvoie un récapitulatif.
+ */
+export async function runNotify(client, event) {
+  const { recipients, reachedGuilds } = await collectRecipients(client, event);
+  const { sent, failed } = await sendNotifications(event, recipients);
+  return { reachedGuilds, unique: recipients.size, sent, failed };
+}
+
 // Envoie le MP à chaque destinataire, séquentiellement et throttlé.
 async function sendNotifications(event, recipients) {
   const embed = dmEmbed(event);
@@ -250,13 +262,12 @@ export async function handleNotifyButton(interaction) {
     .editReply({ content: '📤 Envoi des notifications en cours…', components: [] })
     .catch(() => {});
 
-  const { recipients, reachedGuilds } = await collectRecipients(interaction.client, event);
-  const { sent, failed } = await sendNotifications(event, recipients);
+  const { reachedGuilds, unique, sent, failed } = await runNotify(interaction.client, event);
 
   const summary =
     `✅ Notifications envoyées pour **${event.name}**.\n` +
     `• Serveurs ciblés : **${reachedGuilds}**\n` +
-    `• Membres notifiés (uniques) : **${recipients.size}**\n` +
+    `• Membres notifiés (uniques) : **${unique}**\n` +
     `• MP délivrés : **${sent}**` +
     (failed ? `\n• Non délivrés (MP fermés/partis) : **${failed}**` : '') +
     (ALLOW_EVERYONE ? '' : `\n🧪 _Phase de test : envois limités à ${config.notifyAllowlist.join(', ')}._`);

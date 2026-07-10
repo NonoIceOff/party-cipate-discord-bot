@@ -73,10 +73,18 @@ des participants (avec les gagnants après tirage).
 
 ### Notifier un événement par messages privés
 
-Depuis **`/modifier-event <event>`**, l'organisateur dispose d'un bouton
-**« 📣 Notifier par messages privés »**. Au clic (après une **confirmation**), le
-bot envoie un MP proposant l'inscription à **tous les membres** des serveurs
-Discord **connectés à la production de l'événement** (via `/setup`) :
+Deux points de déclenchement, **même comportement** :
+
+- **Sur le site** (party-cipate) : bouton **« Notifier tous les membres en MP »**
+  sur la page de modification d'un événement. Il appelle `POST /events/:id/notify`
+  (pm-api) qui pose un champ `notify_requested_at` ; le bot le détecte à son poll
+  (≤ 30 s) et envoie les MP — même mécanisme que l'annonce forcée.
+- **Dans Discord** : bouton **« 📣 Notifier par messages privés »** dans
+  `/modifier-event <event>` (avec **confirmation** immédiate).
+
+Dans les deux cas, le bot envoie un MP proposant l'inscription à **tous les
+membres** des serveurs Discord **connectés à la production de l'événement** (via
+`/setup`) :
 
 - Le ciblage suit le **même filtre par production** que les annonces automatiques :
   seuls les serveurs dont la production connectée correspond à celle de l'événement
