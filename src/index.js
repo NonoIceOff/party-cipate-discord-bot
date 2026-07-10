@@ -1,12 +1,19 @@
-import { Client, GatewayIntentBits, Events } from 'discord.js';
+import { Client, GatewayIntentBits, Events, Partials } from 'discord.js';
 import { config } from './config.js';
 import { loadCommands } from './commands/index.js';
 import { handleEventButton } from './buttons.js';
+import { handleNotifyButton, handleDmButton } from './notifier.js';
 import { startAnnouncer } from './announcer.js';
 
 const client = new Client({
-  // Les slash commands ne nécessitent pas d'intents privilégiés.
-  intents: [GatewayIntentBits.Guilds]
+  // GuildMembers (intent PRIVILÉGIÉ) est requis pour énumérer les membres d'un
+  // serveur et leur proposer l'inscription par MP (bouton « Notifier par MP »).
+  // ⚠️ À activer dans le Developer Portal (Bot > Server Members Intent), sinon la
+  // connexion échoue au démarrage.
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
+  // Partials.Channel permet de recevoir les interactions (clics de boutons) dans
+  // les MP même si le salon privé n'est pas encore en cache.
+  partials: [Partials.Channel]
 });
 
 const commands = await loadCommands();
@@ -33,15 +40,23 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return;
   }
 
-  // Boutons (inscription/désinscription sur les embeds d'événement).
+  // Boutons.
   if (interaction.isButton()) {
-    if (interaction.customId.startsWith('evt:')) {
-      try {
+    const id = interaction.customId;
+    try {
+      if (id.startsWith('evt:')) {
+        // Inscription/désinscription/J'aime sur les embeds d'événement.
         await handleEventButton(interaction);
-      } catch (err) {
-        console.error('Erreur bouton événement :', err);
-        await safeReply(interaction, '❌ Une erreur est survenue.');
+      } else if (id.startsWith('notify:')) {
+        // Déclenchement des notifications MP (côté organisateur).
+        await handleNotifyButton(interaction);
+      } else if (id.startsWith('dm:')) {
+        // Boutons présents dans les MP de notification (côté membre).
+        await handleDmButton(interaction);
       }
+    } catch (err) {
+      console.error('Erreur bouton :', err);
+      await safeReply(interaction, '❌ Une erreur est survenue.');
     }
     return;
   }

@@ -7,7 +7,13 @@ const here = dirname(fileURLToPath(import.meta.url));
 const dataDir = join(here, '..', 'data');
 const file = join(dataDir, 'config.json');
 
-let state = { guilds: {}, eventStates: {}, announcerInitialized: false, eventMessages: {} };
+let state = {
+  guilds: {},
+  eventStates: {},
+  announcerInitialized: false,
+  eventMessages: {},
+  notifyOptOuts: { all: [], productions: {} }
+};
 
 function load() {
   try {
@@ -21,6 +27,13 @@ function load() {
   if (!state.guilds) state.guilds = {};
   if (!state.eventStates || typeof state.eventStates !== 'object') state.eventStates = {};
   if (!state.eventMessages || typeof state.eventMessages !== 'object') state.eventMessages = {};
+  if (!state.notifyOptOuts || typeof state.notifyOptOuts !== 'object') {
+    state.notifyOptOuts = { all: [], productions: {} };
+  }
+  if (!Array.isArray(state.notifyOptOuts.all)) state.notifyOptOuts.all = [];
+  if (!state.notifyOptOuts.productions || typeof state.notifyOptOuts.productions !== 'object') {
+    state.notifyOptOuts.productions = {};
+  }
   if (typeof state.announcerInitialized !== 'boolean') {
     state.announcerInitialized = false;
   }
@@ -135,6 +148,22 @@ export function getGuildProductions(guildId) {
   }));
 }
 
+/**
+ * IDs des serveurs Discord connectés (via /setup) à une production donnée.
+ * Sert à cibler les notifications MP : on ne DM que les membres des serveurs
+ * dont la production connectée correspond à celle de l'événement.
+ */
+export function getGuildsForProduction(productionId) {
+  if (productionId == null) return [];
+  const target = String(productionId);
+  const out = [];
+  for (const [guildId, g] of Object.entries(state.guilds)) {
+    const prods = normalizeGuildProductions(g);
+    if (prods.some((p) => String(p.id) === target)) out.push(guildId);
+  }
+  return out;
+}
+
 /** L'annonceur a-t-il déjà été initialisé (évite de spammer l'existant au boot) ? */
 export function isAnnouncerInitialized() {
   return !!state.announcerInitialized;
@@ -218,4 +247,40 @@ export function forgetEventMessage(eventId, channelId, messageId) {
   if (next.length) state.eventMessages[id] = next;
   else delete state.eventMessages[id];
   save();
+}
+
+// ───────────────────────── Opt-out des notifications MP ─────────────────────────
+// Un membre peut demander à ne plus recevoir de MP de notification, soit pour une
+// production précise, soit pour l'ensemble de Party-cipate. On mémorise son Discord
+// ID dans notifyOptOuts : { all: [discordId…], productions: { [prodId]: [discordId…] } }.
+
+/** Le membre (discordId) a-t-il refusé les MP pour cette production (ou globalement) ? */
+export function isNotifyOptedOut(discordId, productionId) {
+  const id = String(discordId);
+  if (state.notifyOptOuts.all.includes(id)) return true;
+  if (productionId == null) return false;
+  const list = state.notifyOptOuts.productions[String(productionId)] || [];
+  return list.includes(id);
+}
+
+/** Le membre ne veut plus AUCUN MP Party-cipate. */
+export function optOutNotifyAll(discordId) {
+  const id = String(discordId);
+  if (!state.notifyOptOuts.all.includes(id)) {
+    state.notifyOptOuts.all.push(id);
+    save();
+  }
+}
+
+/** Le membre ne veut plus de MP pour une production précise. */
+export function optOutNotifyProduction(discordId, productionId) {
+  if (productionId == null) return;
+  const id = String(discordId);
+  const key = String(productionId);
+  const list = state.notifyOptOuts.productions[key] || [];
+  if (!list.includes(id)) {
+    list.push(id);
+    state.notifyOptOuts.productions[key] = list;
+    save();
+  }
 }

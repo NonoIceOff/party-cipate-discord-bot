@@ -36,7 +36,7 @@ Flux d'une commande :
 | `/mesevents` | Liste les événements auxquels tu es inscrit(e). | Tous |
 | `/jaime <event>` | Ajoute un "J'aime" à un événement. | Tous |
 | `/creer-event` | Crée un événement (nom, description, date, gagnants, image…). | Tous |
-| `/modifier-event <event> [options]` | Modifie un de tes événements. | Organisateur |
+| `/modifier-event <event> [options]` | Modifie un de tes événements (ou, sans option, ouvre le menu de gestion avec le bouton **Notifier par MP**). | Organisateur |
 | `/supprimer-event <event>` | Supprime un de tes événements (avec confirmation). | Organisateur |
 | `/tirage <event>` | Lance le tirage au sort (avec confirmation). | Organisateur |
 | `/gestion` | Tableau de bord de tes événements créés (stats). | Tous |
@@ -71,6 +71,39 @@ Les actions destructives (tirage, suppression) demandent une **confirmation**.
 L'embed reflète en direct le statut, le nombre d'inscrits, de J'aime et la liste
 des participants (avec les gagnants après tirage).
 
+### Notifier un événement par messages privés
+
+Depuis **`/modifier-event <event>`**, l'organisateur dispose d'un bouton
+**« 📣 Notifier par messages privés »**. Au clic (après une **confirmation**), le
+bot envoie un MP proposant l'inscription à **tous les membres** des serveurs
+Discord **connectés à la production de l'événement** (via `/setup`) :
+
+- Le ciblage suit le **même filtre par production** que les annonces automatiques :
+  seuls les serveurs dont la production connectée correspond à celle de l'événement
+  sont concernés.
+- Les destinataires sont **dédoublonnés** : un membre présent sur plusieurs
+  serveurs ne reçoit qu'**un seul** MP.
+- L'envoi est **throttlé** (≈ 1 MP toutes les 0,8 s) pour respecter les limites
+  Discord, et les membres qui ont fermé leurs MP sont simplement ignorés.
+
+Chaque MP contient la fiche de l'événement et trois boutons :
+
+- **S'inscrire** — inscrit directement le membre (crée son compte Party-cipate si besoin) ;
+- **Pas intéressé** — referme la proposition, sans effet ;
+- **Ne plus me notifier** — propose de se désabonner **de cette production** ou de
+  **tout Party-cipate**. Ces choix sont **persistés** (`data/config.json`) et
+  respectés lors des envois suivants.
+
+> ⚠️ **Garde-fou anti-spam.** Par défaut, une **liste blanche** limite les envois
+> réels au(x) seul(s) destinataire(s) autorisé(s) (`NOTIFY_ALLOWLIST`, `nonoice`
+> par défaut). Tant que la valeur n'est pas passée à `*`, les autres membres **ne
+> reçoivent rien**, même s'ils sont comptés dans le ciblage.
+
+> ⚠️ **Intent privilégié requis.** Énumérer les membres d'un serveur nécessite
+> l'intent **Server Members Intent** : active-le dans le *Developer Portal*
+> (**Bot → Privileged Gateway Intents → Server Members Intent**), sinon le bot
+> **refuse de démarrer**.
+
 ## Installation
 
 ```bash
@@ -87,6 +120,11 @@ cp .env.example .env   # puis remplir les valeurs
 | `DISCORD_GUILD_ID` | (Optionnel) serveur de test pour un déploiement instantané. |
 | `PM_API_URL` | Base de l'API, ex. `https://api.montdescartes.fr/api`. |
 | `BOT_API_KEY` | Clé partagée — **identique** à `BOT_API_KEY` côté `pm-api`. |
+| `NOTIFY_ALLOWLIST` | (Optionnel) Liste blanche des destinataires des MP de notification (ID ou nom d'utilisateur Discord, séparés par des virgules). Défaut : `nonoice`. Mettre `*` pour notifier tout le monde. |
+
+> ℹ️ Le bouton **Notifier par MP** requiert d'activer l'intent **Server Members
+> Intent** dans le *Developer Portal* (voir la section _Notifier un événement par
+> messages privés_).
 
 ## Démarrage
 
