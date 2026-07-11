@@ -1,0 +1,19 @@
+name: Deploy party-cipate-bot (self-hosted)
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Pull latest code and restart service
+        run: |
+          cd /home/nolan/DiscordBotParty-cipate
+          git fetch origin main
+          git reset --hard origin/main
+          npm install --omit=dev
+          sudo systemctl restart party-cipate-bot
+          sleep 2
+          systemctl is-active party-cipate-bot
