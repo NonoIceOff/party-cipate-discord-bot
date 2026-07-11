@@ -11,11 +11,11 @@ function required(name) {
 }
 
 // Liste blanche des destinataires autorisés pour les notifications MP.
-// Garde-fou anti-spam : tant que la liste ne contient pas « * », SEULS ces membres
-// (identifiant Discord ou nom d'utilisateur, insensible à la casse) reçoivent
-// réellement les MP de notification. Par défaut : uniquement « nonoice ».
-// Mettre NOTIFY_ALLOWLIST=* pour autoriser l'envoi à tous les membres.
-const notifyAllowlist = (process.env.NOTIFY_ALLOWLIST || 'nonoice')
+// Par défaut « * » : AUCUNE restriction, les MP partent à tous les membres des
+// serveurs connectés à la production. Pour re-restreindre (ex. phase de test),
+// définir NOTIFY_ALLOWLIST=nom_ou_id[,autre…] : seuls ces membres recevront alors
+// les MP (identifiant Discord ou nom d'utilisateur, insensible à la casse).
+const notifyAllowlist = (process.env.NOTIFY_ALLOWLIST || '*')
   .split(',')
   .map((s) => s.trim().toLowerCase())
   .filter(Boolean);

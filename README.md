@@ -102,10 +102,11 @@ Chaque MP contient la fiche de l'événement et trois boutons :
   **tout Party-cipate**. Ces choix sont **persistés** (`data/config.json`) et
   respectés lors des envois suivants.
 
-> ⚠️ **Garde-fou anti-spam.** Par défaut, une **liste blanche** limite les envois
-> réels au(x) seul(s) destinataire(s) autorisé(s) (`NOTIFY_ALLOWLIST`, `nonoice`
-> par défaut). Tant que la valeur n'est pas passée à `*`, les autres membres **ne
-> reçoivent rien**, même s'ils sont comptés dans le ciblage.
+> ℹ️ **Liste blanche optionnelle.** Par défaut (`NOTIFY_ALLOWLIST=*`), **aucune
+> restriction** : les MP partent à tous les membres ciblés. Pour re-restreindre les
+> envois réels (ex. phase de test), définir `NOTIFY_ALLOWLIST=nom_ou_id[,autre…]` :
+> seuls ces destinataires recevront alors les MP, les autres **ne reçoivent rien**
+> même s'ils sont comptés dans le ciblage.
 
 > ⚠️ **Intent privilégié requis.** Énumérer les membres d'un serveur nécessite
 > l'intent **Server Members Intent** : active-le dans le *Developer Portal*
@@ -128,7 +129,7 @@ cp .env.example .env   # puis remplir les valeurs
 | `DISCORD_GUILD_ID` | (Optionnel) serveur de test pour un déploiement instantané. |
 | `PM_API_URL` | Base de l'API, ex. `https://api.montdescartes.fr/api`. |
 | `BOT_API_KEY` | Clé partagée — **identique** à `BOT_API_KEY` côté `pm-api`. |
-| `NOTIFY_ALLOWLIST` | (Optionnel) Liste blanche des destinataires des MP de notification (ID ou nom d'utilisateur Discord, séparés par des virgules). Défaut : `nonoice`. Mettre `*` pour notifier tout le monde. |
+| `NOTIFY_ALLOWLIST` | (Optionnel) Liste blanche des destinataires des MP de notification (ID ou nom d'utilisateur Discord, séparés par des virgules). Défaut : `*` (tout le monde). Définir une liste pour restreindre les envois (ex. `nonoice`). |
 
 > ℹ️ Le bouton **Notifier par MP** requiert d'activer l'intent **Server Members
 > Intent** dans le *Developer Portal* (voir la section _Notifier un événement par
