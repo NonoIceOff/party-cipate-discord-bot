@@ -41,6 +41,7 @@ Flux d'une commande :
 | `/tirage <event>` | Lance le tirage au sort (avec confirmation). | Organisateur |
 | `/gestion` | Tableau de bord de tes événements créés (stats). | Tous |
 | `/setup` | Assistant unique : choisit la production puis le salon d'annonces (menus déroulants), ou déconnecte le serveur. | Admin serveur (Gérer le serveur) |
+| `/recheck` | Repeuple les comptes party-cipate de tous les membres de tous les serveurs du bot (création via `/bot/auth/discord`, dédoublonné). | Admin serveur (Administrateur) |
 
 ### Annonces automatiques des nouveaux événements
 
