@@ -2,12 +2,16 @@
 export const ROLE_LABELS = {
   admin: 'Admin',
   producteur: 'Producteur',
+  vip: 'VIP',
+  candidat: 'Candidat',
   member: 'Membre'
 };
 
 export const ROLE_COLORS = {
   admin: 0xff8a00,
   producteur: 0xa78bfa,
+  vip: 0xfacc15,
+  candidat: 0x22d3ee,
   member: 0x94a3b8
 };
 
