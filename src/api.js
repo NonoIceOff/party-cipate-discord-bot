@@ -224,6 +224,21 @@ export async function setMemberRole(token, memberId, role) {
   return data;
 }
 
+// ── Mentions du chat (notification MP) ──
+
+/**
+ * Mentions @username pas encore notifiées par MP Discord. Le simple fait
+ * d'appeler cette route les marque comme notifiées côté API (voir
+ * getPendingMentionsForBot) : à n'appeler que juste avant l'envoi effectif.
+ */
+export async function getPendingMentions(limit = 30) {
+  const { data } = await http.get('/bot/mentions/pending', {
+    headers: botHeaders(),
+    params: { limit }
+  });
+  return Array.isArray(data?.mentions) ? data.mentions : [];
+}
+
 /** Extrait un message d'erreur lisible d'une erreur axios. */
 export function apiError(err) {
   return (
