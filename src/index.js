@@ -4,6 +4,7 @@ import { loadCommands } from './commands/index.js';
 import { handleEventButton } from './buttons.js';
 import { handleNotifyButton, handleDmButton } from './notifier.js';
 import { startAnnouncer } from './announcer.js';
+import { startMentionNotifier } from './mentionNotifier.js';
 
 const client = new Client({
   // GuildMembers (intent PRIVILÉGIÉ) est requis pour énumérer les membres d'un
@@ -23,6 +24,7 @@ client.once(Events.ClientReady, (c) => {
   console.log(`✅ Connecté en tant que ${c.user.tag}`);
   console.log(`🌐 API Party-cipate : ${config.apiUrl}`);
   startAnnouncer(c);
+  startMentionNotifier(c);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
