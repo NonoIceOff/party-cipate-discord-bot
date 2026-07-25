@@ -1,12 +1,14 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { resolveUser, getEvent, participate } from './api.js';
+import { resolveUser, getEvent, participate, getParticipantDiscordIds } from './api.js';
 import { eventEmbed } from './events-ui.js';
 import { canManageEvent } from './permissions.js';
 import {
   getGuildsForProduction,
   isNotifyOptedOut,
   optOutNotifyAll,
-  optOutNotifyProduction
+  optOutNotifyProduction,
+  hasDeclinedEvent,
+  declineEvent
 } from './store.js';
 import { config } from './config.js';
 import { PERM, formatApiError } from './errors.js';
@@ -98,12 +100,21 @@ function dmEmbed(event) {
  * Rassemble les membres à notifier : tous les membres humains des serveurs
  * connectés (via /setup) à la production de l'événement, dédoublonnés par
  * identifiant Discord (un membre présent sur plusieurs serveurs n'est compté
- * qu'une fois) et hors membres désabonnés.
+ * qu'une fois), hors membres désabonnés, et hors membres ayant déjà répondu à
+ * CET évènement précis (déjà inscrits, ou ayant cliqué « Pas intéressé ») —
+ * un rappel ne resollicite que ceux qui n'ont pas encore répondu.
  */
 async function collectRecipients(client, event) {
   const guildIds = getGuildsForProduction(event.production_id);
   const recipients = new Map(); // discordId -> GuildMember (dédoublonnage)
   let reachedGuilds = 0;
+
+  let alreadyParticipated = new Set();
+  try {
+    alreadyParticipated = new Set(await getParticipantDiscordIds(event.id));
+  } catch (err) {
+    console.error(`Participants de l'évènement #${event.id} illisibles :`, err.message);
+  }
 
   for (const guildId of guildIds) {
     const guild = client.guilds.cache.get(guildId);
@@ -124,6 +135,8 @@ async function collectRecipients(client, event) {
       if (recipients.has(member.id)) continue; // déjà vu sur un autre serveur
       if (!isAllowedRecipient(member)) continue; // garde-fou liste blanche
       if (isNotifyOptedOut(member.id, event.production_id)) continue;
+      if (alreadyParticipated.has(member.id)) continue; // déjà inscrit
+      if (hasDeclinedEvent(member.id, event.id)) continue; // a déjà dit "pas intéressé"
       recipients.set(member.id, member);
     }
   }
@@ -303,6 +316,7 @@ export async function handleDmButton(interaction) {
       return;
     }
     case 'no': {
+      declineEvent(interaction.user.id, eventId);
       await interaction
         .update({ content: '👍 Pas de souci, on ne t\'embête plus avec cet événement.', components: [] })
         .catch(() => {});
