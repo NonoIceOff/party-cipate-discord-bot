@@ -149,6 +149,18 @@ export async function getParticipants(token, eventId) {
   return Array.isArray(data) ? data : [];
 }
 
+/**
+ * IDs Discord des membres ayant déjà répondu (demande de participation) à un
+ * évènement — sert à exclure ces membres des rappels de notification MP, pour
+ * ne resolliciter que ceux qui n'ont pas encore répondu.
+ */
+export async function getParticipantDiscordIds(eventId) {
+  const { data } = await http.get(`/bot/events/${eventId}/participant-discord-ids`, {
+    headers: botHeaders()
+  });
+  return Array.isArray(data?.discordIds) ? data.discordIds : [];
+}
+
 /** Nombre de "J'aime" d'un événement (public). */
 export async function getLikesCount(eventId) {
   try {

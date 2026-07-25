@@ -13,7 +13,8 @@ let state = {
   announcerInitialized: false,
   eventMessages: {},
   notifyOptOuts: { all: [], productions: {} },
-  notifyRequests: {}
+  notifyRequests: {},
+  eventDeclines: {}
 };
 
 function load() {
@@ -36,6 +37,7 @@ function load() {
     state.notifyOptOuts.productions = {};
   }
   if (!state.notifyRequests || typeof state.notifyRequests !== 'object') state.notifyRequests = {};
+  if (!state.eventDeclines || typeof state.eventDeclines !== 'object') state.eventDeclines = {};
   if (typeof state.announcerInitialized !== 'boolean') {
     state.announcerInitialized = false;
   }
@@ -299,6 +301,29 @@ export function optOutNotifyProduction(discordId, productionId) {
   if (!list.includes(id)) {
     list.push(id);
     state.notifyOptOuts.productions[key] = list;
+    save();
+  }
+}
+
+// ───────────────────── Réponses "pas intéressé" par évènement ─────────────────────
+// Un membre ayant cliqué « Pas intéressé » sur le MP d'un évènement précis ne doit
+// plus être resollicité pour CE même évènement lors d'un rappel (mais reste
+// notifiable pour les autres évènements). state.eventDeclines : { [eventId]: [discordId…] }.
+
+/** Le membre (discordId) a-t-il déjà décliné cet évènement précis ? */
+export function hasDeclinedEvent(discordId, eventId) {
+  const list = state.eventDeclines[String(eventId)] || [];
+  return list.includes(String(discordId));
+}
+
+/** Mémorise qu'un membre a décliné un évènement (ne plus le resolliciter pour celui-ci). */
+export function declineEvent(discordId, eventId) {
+  const key = String(eventId);
+  const id = String(discordId);
+  const list = state.eventDeclines[key] || [];
+  if (!list.includes(id)) {
+    list.push(id);
+    state.eventDeclines[key] = list;
     save();
   }
 }
