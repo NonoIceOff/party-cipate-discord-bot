@@ -4,9 +4,9 @@ import {
   getEvent,
   unparticipate,
   listEvents,
-  myParticipations,
-  apiError
+  myParticipations
 } from '../api.js';
+import { formatApiError } from '../errors.js';
 import { autocompleteEvents } from '../autocomplete.js';
 
 export const data = new SlashCommandBuilder()
@@ -50,6 +50,6 @@ export async function execute(interaction) {
       await interaction.editReply('ℹ️ Tu n\'étais pas inscrit(e) à cet événement.');
       return;
     }
-    await interaction.editReply(`❌ ${apiError(err)}`);
+    await interaction.editReply(formatApiError(err));
   }
 }

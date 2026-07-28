@@ -1,5 +1,6 @@
 import { SlashCommandBuilder } from 'discord.js';
-import { resolveUser, listEvents, apiError } from '../api.js';
+import { resolveUser, listEvents} from '../api.js';
+import { formatApiError } from '../errors.js';
 import { buildEventView } from '../event-view.js';
 import { autocompleteEvents } from '../autocomplete.js';
 
@@ -31,6 +32,6 @@ export async function execute(interaction) {
     }
     await interaction.editReply({ embeds: [view.embed], components: view.components });
   } catch (err) {
-    await interaction.editReply(`❌ ${apiError(err)}`);
+    await interaction.editReply(formatApiError(err));
   }
 }

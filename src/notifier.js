@@ -4,10 +4,10 @@ import { eventEmbed } from './events-ui.js';
 import { canManageEvent } from './permissions.js';
 import {
   getGuildsForProduction,
-  isNotifyOptedOut,
+  getNotifyOptOutSet,
   optOutNotifyAll,
   optOutNotifyProduction,
-  hasDeclinedEvent,
+  getDeclinedSet,
   declineEvent
 } from './store.js';
 import { config } from './config.js';
@@ -116,6 +116,11 @@ async function collectRecipients(client, event) {
     console.error(`Participants de l'évènement #${event.id} illisibles :`, err.message);
   }
 
+  // Listes de filtrage construites une seule fois : sur un gros serveur, les
+  // tester par membre reviendrait à balayer ces tableaux des milliers de fois.
+  const optedOut = getNotifyOptOutSet(event.production_id);
+  const declined = getDeclinedSet(event.id);
+
   for (const guildId of guildIds) {
     const guild = client.guilds.cache.get(guildId);
     if (!guild) continue; // le bot n'est plus sur ce serveur
@@ -134,9 +139,9 @@ async function collectRecipients(client, event) {
       if (member.user.bot) continue;
       if (recipients.has(member.id)) continue; // déjà vu sur un autre serveur
       if (!isAllowedRecipient(member)) continue; // garde-fou liste blanche
-      if (isNotifyOptedOut(member.id, event.production_id)) continue;
+      if (optedOut.has(member.id)) continue;
       if (alreadyParticipated.has(member.id)) continue; // déjà inscrit
-      if (hasDeclinedEvent(member.id, event.id)) continue; // a déjà dit "pas intéressé"
+      if (declined.has(member.id)) continue; // a déjà dit "pas intéressé"
       recipients.set(member.id, member);
     }
   }

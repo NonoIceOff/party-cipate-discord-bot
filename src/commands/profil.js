@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { resolveUser, getProfile, apiError } from '../api.js';
+import { resolveUser, getProfile} from '../api.js';
+import { formatApiError } from '../errors.js';
 import { roleLabel, roleColor } from '../roles.js';
 
 export const data = new SlashCommandBuilder()
@@ -51,7 +52,7 @@ export async function execute(interaction) {
 
     await interaction.editReply({ content: note ?? undefined, embeds: [embed] });
   } catch (err) {
-    await interaction.editReply(`❌ ${apiError(err)}`);
+    await interaction.editReply(formatApiError(err));
   }
 }
 
