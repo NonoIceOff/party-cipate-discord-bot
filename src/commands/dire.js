@@ -1,5 +1,6 @@
 import { SlashCommandBuilder } from 'discord.js';
-import { resolveUser, postMessage, apiError } from '../api.js';
+import { resolveUser, postMessage} from '../api.js';
+import { formatApiError } from '../errors.js';
 
 export const data = new SlashCommandBuilder()
   .setName('dire')
@@ -21,6 +22,6 @@ export async function execute(interaction) {
     await postMessage(token, 'general', content);
     await interaction.editReply('✅ Message publié dans #général sur Party-cipate.');
   } catch (err) {
-    await interaction.editReply(`❌ ${apiError(err)}`);
+    await interaction.editReply(formatApiError(err));
   }
 }

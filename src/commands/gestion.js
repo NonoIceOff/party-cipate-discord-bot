@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { resolveUser, apiError } from '../api.js';
+import { resolveUser } from '../api.js';
+import { formatApiError } from '../errors.js';
 import { getManageableEvents } from '../permissions.js';
 import { eventStatus } from '../events-ui.js';
 
@@ -49,6 +50,6 @@ export async function execute(interaction) {
 
     await interaction.editReply({ embeds: [embed] });
   } catch (err) {
-    await interaction.editReply(`❌ ${apiError(err)}`);
+    await interaction.editReply(formatApiError(err));
   }
 }

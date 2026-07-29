@@ -7,8 +7,8 @@ import {
   ChannelType,
   EmbedBuilder
 } from 'discord.js';
-import { listProductions, apiError } from '../api.js';
-import { PERM } from '../errors.js';
+import { listProductions } from '../api.js';
+import { PERM, formatApiError } from '../errors.js';
 import {
   setGuildProductions,
   setAnnouncementChannel,
@@ -100,7 +100,9 @@ export async function execute(interaction) {
   try {
     productions = await listProductions();
   } catch (err) {
-    await interaction.editReply(`❌ Impossible de récupérer les productions : ${apiError(err)}`);
+    await interaction.editReply(
+      `Impossible de récupérer les productions.\n${formatApiError(err)}`
+    );
     return;
   }
 

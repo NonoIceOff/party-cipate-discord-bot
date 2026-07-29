@@ -8,7 +8,7 @@ import { buildEventView } from '../event-view.js';
 import { parseEventDate } from '../events-ui.js';
 import { autocompleteEvents } from '../autocomplete.js';
 import { canManageEvent, getManageableEvents } from '../permissions.js';
-import { notifyButtonRow } from '../notifier.js';
+import { notifyButtonRow, NOTIFY_SUSPENDED } from '../notifier.js';
 import { PERM, formatApiError } from '../errors.js';
 
 export const data = new SlashCommandBuilder()
@@ -108,17 +108,23 @@ export async function execute(interaction) {
       return;
     }
 
-    // Sans option : on affiche simplement le menu de gestion (fiche + bouton
-    // « Notifier par MP ») sans rien modifier.
+    // Sans option : on affiche simplement le menu de gestion sans rien modifier.
     const hasChanges = Object.keys(patch).length > 0;
     if (hasChanges) await updateEvent(token, eventId, patch);
 
+    // Le bouton « Notifier par MP » n'est pas proposé tant que la
+    // fonctionnalité est suspendue (voir NOTIFY_SUSPENDED dans notifier.js).
     const view = await buildEventView(eventId, { token, user });
-    const components = view ? [...view.components, notifyButtonRow(view.event)] : [];
+    const components = view
+      ? NOTIFY_SUSPENDED
+        ? view.components
+        : [...view.components, notifyButtonRow(view.event)]
+      : [];
+    const idleHint = NOTIFY_SUSPENDED
+      ? 'ℹ️ Gestion de l\'événement. Renseigne des options pour le modifier.'
+      : 'ℹ️ Gestion de l\'événement. Renseigne des options pour le modifier, ou utilise le bouton ci-dessous.';
     await interaction.editReply({
-      content: hasChanges
-        ? '✅ Événement mis à jour.'
-        : 'ℹ️ Gestion de l\'événement. Renseigne des options pour le modifier, ou utilise le bouton ci-dessous.',
+      content: hasChanges ? '✅ Événement mis à jour.' : idleHint,
       embeds: view ? [view.embed] : [],
       components
     });

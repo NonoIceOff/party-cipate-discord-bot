@@ -3,9 +3,9 @@ import {
   resolveUser,
   getEvent,
   participate,
-  listEvents,
-  apiError
+  listEvents
 } from '../api.js';
+import { formatApiError } from '../errors.js';
 import { isEventJoinable } from '../events-ui.js';
 import { autocompleteEvents } from '../autocomplete.js';
 
@@ -49,6 +49,6 @@ export async function execute(interaction) {
 
     await interaction.editReply(`✅ Inscription confirmée à **${event.name}** !`);
   } catch (err) {
-    await interaction.editReply(`❌ ${apiError(err)}`);
+    await interaction.editReply(formatApiError(err));
   }
 }

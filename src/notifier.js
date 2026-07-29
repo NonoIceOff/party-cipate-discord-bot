@@ -4,10 +4,10 @@ import { eventEmbed } from './events-ui.js';
 import { canManageEvent } from './permissions.js';
 import {
   getGuildsForProduction,
-  isNotifyOptedOut,
+  getNotifyOptOutSet,
   optOutNotifyAll,
   optOutNotifyProduction,
-  hasDeclinedEvent,
+  getDeclinedSet,
   declineEvent
 } from './store.js';
 import { config } from './config.js';
@@ -19,6 +19,18 @@ import { PERM, formatApiError } from './errors.js';
 const DM_DELAY_MS = 800;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Fonctionnalité suspendue jusqu'à nouvel ordre : aucun MP de notification
+ * n'est envoyé, quel que soit le déclencheur (bouton de /modifier-event ou
+ * demande posée depuis le site via notify_requested_at). Repasser à false pour
+ * la réactiver — le site a le même interrupteur (NOTIFY_SUSPENDED dans
+ * components/EventForm.tsx).
+ */
+export const NOTIFY_SUSPENDED = true;
+
+const SUSPENDED_MESSAGE =
+  '⏸️ La notification par messages privés est temporairement suspendue.';
 
 // Garde-fou : « * » autorise l'envoi à tous ; sinon seuls les membres de la liste
 // blanche (config.notifyAllowlist) reçoivent réellement les MP.
@@ -116,6 +128,11 @@ async function collectRecipients(client, event) {
     console.error(`Participants de l'évènement #${event.id} illisibles :`, err.message);
   }
 
+  // Listes de filtrage construites une seule fois : sur un gros serveur, les
+  // tester par membre reviendrait à balayer ces tableaux des milliers de fois.
+  const optedOut = getNotifyOptOutSet(event.production_id);
+  const declined = getDeclinedSet(event.id);
+
   for (const guildId of guildIds) {
     const guild = client.guilds.cache.get(guildId);
     if (!guild) continue; // le bot n'est plus sur ce serveur
@@ -134,9 +151,9 @@ async function collectRecipients(client, event) {
       if (member.user.bot) continue;
       if (recipients.has(member.id)) continue; // déjà vu sur un autre serveur
       if (!isAllowedRecipient(member)) continue; // garde-fou liste blanche
-      if (isNotifyOptedOut(member.id, event.production_id)) continue;
+      if (optedOut.has(member.id)) continue;
       if (alreadyParticipated.has(member.id)) continue; // déjà inscrit
-      if (hasDeclinedEvent(member.id, event.id)) continue; // a déjà dit "pas intéressé"
+      if (declined.has(member.id)) continue; // a déjà dit "pas intéressé"
       recipients.set(member.id, member);
     }
   }
@@ -151,6 +168,11 @@ async function collectRecipients(client, event) {
  * le site pose notify_requested_at. Renvoie un récapitulatif.
  */
 export async function runNotify(client, event) {
+  // Point de passage unique des deux déclencheurs : le couper ici suffit à
+  // suspendre la fonctionnalité, sans dépendre de l'état des interfaces.
+  if (NOTIFY_SUSPENDED) {
+    return { reachedGuilds: 0, unique: 0, sent: 0, failed: 0, suspended: true };
+  }
   const { recipients, reachedGuilds } = await collectRecipients(client, event);
   const { sent, failed } = await sendNotifications(event, recipients);
   return { reachedGuilds, unique: recipients.size, sent, failed };
@@ -186,6 +208,15 @@ async function sendNotifications(event, recipients) {
 export async function handleNotifyButton(interaction) {
   const [, action, rawId] = interaction.customId.split(':');
   const eventId = Number(rawId);
+
+  // Le bouton n'est plus proposé, mais d'anciens messages éphémères peuvent
+  // encore en contenir un : on répond sans rien envoyer.
+  if (NOTIFY_SUSPENDED) {
+    await interaction
+      .reply({ content: SUSPENDED_MESSAGE, ephemeral: true })
+      .catch(() => {});
+    return;
+  }
 
   // Acquittement adapté À L'ACTION avant tout appel API (règle des 3 s Discord) :
   //  - cancel : édition immédiate du message (aucun appel réseau) ;

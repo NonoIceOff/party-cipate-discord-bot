@@ -1,5 +1,6 @@
 import { SlashCommandBuilder } from 'discord.js';
-import { resolveUser, getEvent, likeEvent, listEvents, apiError } from '../api.js';
+import { resolveUser, getEvent, likeEvent, listEvents } from '../api.js';
+import { formatApiError } from '../errors.js';
 import { autocompleteEvents } from '../autocomplete.js';
 
 export const data = new SlashCommandBuilder()
@@ -31,6 +32,6 @@ export async function execute(interaction) {
     await likeEvent(token, eventId);
     await interaction.editReply(`❤️ Tu aimes **${event.name}** !`);
   } catch (err) {
-    await interaction.editReply(`❌ ${apiError(err)}`);
+    await interaction.editReply(formatApiError(err));
   }
 }

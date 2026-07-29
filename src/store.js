@@ -77,11 +77,6 @@ export function clearAnnouncementChannel(guildId) {
   }
 }
 
-/** Salon d'annonces configuré pour un serveur (ou null). */
-export function getAnnouncementChannel(guildId) {
-  return state.guilds[guildId]?.announcementChannelId || null;
-}
-
 // Normalise les productions d'un serveur vers [{ id, name }], en gérant
 // l'ancien format mono-production (productionId / productionName).
 function normalizeGuildProductions(g) {
@@ -229,17 +224,36 @@ export function setEventStatesBatch(updates) {
 // (dégriser ceux qui ne devraient pas l'être, griser quand l'événement est fermé)
 // SANS perdre la mémoire des inscriptions déjà ouvertes.
 
-/** Mémorise un message d'inscription posté pour un événement (dédupliqué). */
-export function recordEventMessage(eventId, channelId, messageId) {
-  if (eventId == null || !channelId || !messageId) return;
+// Mutation en mémoire seule. Renvoie true si l'état a changé (nouveau message).
+function applyEventMessage(eventId, channelId, messageId) {
+  if (eventId == null || !channelId || !messageId) return false;
   const id = String(eventId);
   const list = state.eventMessages[id] || [];
   const ref = { channelId: String(channelId), messageId: String(messageId) };
-  if (!list.some((m) => m.channelId === ref.channelId && m.messageId === ref.messageId)) {
-    list.push(ref);
-    state.eventMessages[id] = list;
-    save();
+  if (list.some((m) => m.channelId === ref.channelId && m.messageId === ref.messageId)) {
+    return false;
   }
+  list.push(ref);
+  state.eventMessages[id] = list;
+  return true;
+}
+
+/** Mémorise un message d'inscription posté pour un événement (dédupliqué). */
+export function recordEventMessage(eventId, channelId, messageId) {
+  if (applyEventMessage(eventId, channelId, messageId)) save();
+}
+
+/**
+ * Variante groupée : une seule écriture disque pour tout un lot. À utiliser
+ * pour les balayages d'historique, où un enregistrement message par message
+ * réécrirait tout le fichier d'état des centaines de fois au démarrage.
+ */
+export function recordEventMessages(entries) {
+  let changed = false;
+  for (const e of entries || []) {
+    if (applyEventMessage(e.eventId, e.channelId, e.messageId)) changed = true;
+  }
+  if (changed) save();
 }
 
 /** Messages connus pour un événement : [{ channelId, messageId }]. */
@@ -274,13 +288,19 @@ export function forgetEventMessage(eventId, channelId, messageId) {
 // production précise, soit pour l'ensemble de Party-cipate. On mémorise son Discord
 // ID dans notifyOptOuts : { all: [discordId…], productions: { [prodId]: [discordId…] } }.
 
-/** Le membre (discordId) a-t-il refusé les MP pour cette production (ou globalement) ? */
-export function isNotifyOptedOut(discordId, productionId) {
-  const id = String(discordId);
-  if (state.notifyOptOuts.all.includes(id)) return true;
-  if (productionId == null) return false;
-  const list = state.notifyOptOuts.productions[String(productionId)] || [];
-  return list.includes(id);
+/**
+ * Ensemble des désabonnés concernés par une production (globaux + production).
+ * À construire une fois avant de filtrer une liste de membres : évite un
+ * balayage linéaire des tableaux d'opt-out pour chaque membre du serveur.
+ */
+export function getNotifyOptOutSet(productionId) {
+    const set = new Set(state.notifyOptOuts.all.map(String));
+    if (productionId != null) {
+        for (const id of state.notifyOptOuts.productions[String(productionId)] || []) {
+            set.add(String(id));
+        }
+    }
+    return set;
 }
 
 /** Le membre ne veut plus AUCUN MP Party-cipate. */
@@ -310,10 +330,9 @@ export function optOutNotifyProduction(discordId, productionId) {
 // plus être resollicité pour CE même évènement lors d'un rappel (mais reste
 // notifiable pour les autres évènements). state.eventDeclines : { [eventId]: [discordId…] }.
 
-/** Le membre (discordId) a-t-il déjà décliné cet évènement précis ? */
-export function hasDeclinedEvent(discordId, eventId) {
-  const list = state.eventDeclines[String(eventId)] || [];
-  return list.includes(String(discordId));
+/** Ensemble des membres ayant décliné un évènement (même usage que ci-dessus). */
+export function getDeclinedSet(eventId) {
+  return new Set((state.eventDeclines[String(eventId)] || []).map(String));
 }
 
 /** Mémorise qu'un membre a décliné un évènement (ne plus le resolliciter pour celui-ci). */

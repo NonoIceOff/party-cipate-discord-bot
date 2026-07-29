@@ -64,12 +64,6 @@ export async function getMyProductions(token) {
   return Array.isArray(data) ? data : [];
 }
 
-/** Liste des channels + droits du user (au nom de son token). */
-export async function getChannels(token) {
-  const { data } = await http.get('/channels', { headers: userHeaders(token) });
-  return data; // { channels, isAdmin, role }
-}
-
 /** Poste un message dans un channel au nom de l'utilisateur. */
 export async function postMessage(token, channel, content) {
   const { data } = await http.post(
@@ -122,15 +116,6 @@ export async function unparticipate(token, userId, eventId) {
     { headers: userHeaders(token) }
   );
   return data;
-}
-
-/** Indique si l'utilisateur est inscrit à un événement. */
-export async function hasParticipated(token, userId, eventId) {
-  const { data } = await http.get(
-    `/participations/user/${userId}/event/${eventId}`,
-    { headers: userHeaders(token) }
-  );
-  return Boolean(data.participated);
 }
 
 /** Liste les participations de l'utilisateur (token). */
@@ -214,12 +199,6 @@ export async function drawLottery(token, eventId) {
   return data;
 }
 
-/** Liste les événements créés par un utilisateur. */
-export async function getMyEvents(userId) {
-  const { data } = await http.get(`/events/user/${userId}`);
-  return Array.isArray(data) ? data : [];
-}
-
 /** Liste des membres + rôles (admin uniquement). */
 export async function listMembers(token) {
   const { data } = await http.get('/channels/members', { headers: userHeaders(token) });
@@ -249,14 +228,4 @@ export async function getPendingMentions(limit = 30) {
     params: { limit }
   });
   return Array.isArray(data?.mentions) ? data.mentions : [];
-}
-
-/** Extrait un message d'erreur lisible d'une erreur axios. */
-export function apiError(err) {
-  return (
-    err.response?.data?.error ||
-    err.response?.data?.message ||
-    err.message ||
-    'Erreur inconnue'
-  );
 }

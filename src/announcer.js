@@ -6,6 +6,7 @@ import {
   getEventStates,
   setEventStatesBatch,
   recordEventMessage,
+  recordEventMessages,
   getEventMessages,
   getAllEventMessages,
   forgetEventMessage,
@@ -86,6 +87,10 @@ export async function repairEventMessages(client) {
   // 2) Rattrapage des anciens messages d'inscription postés automatiquement :
   //    on scanne (avec pagination) les salons d'annonces pour retrouver les embeds
   //    du bot, les mémoriser et corriger leurs boutons — de façon rétroactive.
+  // Les messages retrouvés sont accumulés puis écrits en une fois : un
+  // enregistrement unitaire réécrirait tout le fichier d'état à chaque trouvaille.
+  const found = [];
+
   for (const { channelId } of getAnnouncementChannels()) {
     let channel;
     try {
@@ -112,7 +117,7 @@ export async function repairEventMessages(client) {
         if (eventId == null) continue;
         const event = eventMap.get(String(eventId));
         if (!event) continue;
-        recordEventMessage(eventId, channelId, msg.id);
+        found.push({ eventId, channelId, messageId: msg.id });
         if (msg.editable) {
           await msg.edit({ components: eventButtons(event) }).catch(() => {});
         }
@@ -121,6 +126,8 @@ export async function repairEventMessages(client) {
       if (messages.size < 100) break; // dernière page atteinte
     }
   }
+
+  recordEventMessages(found);
 }
 
 async function poll(client) {
@@ -154,10 +161,17 @@ async function poll(client) {
     setNotifiedAt(event.id, reqAt);
     try {
       const summary = await runNotify(client, event);
-      console.log(
-        `📨 Notifications MP event #${event.id} : ${summary.sent} envoyé(s), ` +
-          `${summary.unique} membre(s) uniques sur ${summary.reachedGuilds} serveur(s).`
-      );
+      if (summary.suspended) {
+        console.log(
+          `⏸️ Notifications MP event #${event.id} : demande ignorée, ` +
+            'fonctionnalité suspendue.'
+        );
+      } else {
+        console.log(
+          `📨 Notifications MP event #${event.id} : ${summary.sent} envoyé(s), ` +
+            `${summary.unique} membre(s) uniques sur ${summary.reachedGuilds} serveur(s).`
+        );
+      }
     } catch (err) {
       console.error(`Notifications MP event #${event.id} échouées :`, err.message);
     }
