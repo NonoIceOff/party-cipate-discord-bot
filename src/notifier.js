@@ -20,6 +20,18 @@ const DM_DELAY_MS = 800;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * Fonctionnalité suspendue jusqu'à nouvel ordre : aucun MP de notification
+ * n'est envoyé, quel que soit le déclencheur (bouton de /modifier-event ou
+ * demande posée depuis le site via notify_requested_at). Repasser à false pour
+ * la réactiver — le site a le même interrupteur (NOTIFY_SUSPENDED dans
+ * components/EventForm.tsx).
+ */
+export const NOTIFY_SUSPENDED = true;
+
+const SUSPENDED_MESSAGE =
+  '⏸️ La notification par messages privés est temporairement suspendue.';
+
 // Garde-fou : « * » autorise l'envoi à tous ; sinon seuls les membres de la liste
 // blanche (config.notifyAllowlist) reçoivent réellement les MP.
 const ALLOW_EVERYONE = config.notifyAllowlist.includes('*');
@@ -156,6 +168,11 @@ async function collectRecipients(client, event) {
  * le site pose notify_requested_at. Renvoie un récapitulatif.
  */
 export async function runNotify(client, event) {
+  // Point de passage unique des deux déclencheurs : le couper ici suffit à
+  // suspendre la fonctionnalité, sans dépendre de l'état des interfaces.
+  if (NOTIFY_SUSPENDED) {
+    return { reachedGuilds: 0, unique: 0, sent: 0, failed: 0, suspended: true };
+  }
   const { recipients, reachedGuilds } = await collectRecipients(client, event);
   const { sent, failed } = await sendNotifications(event, recipients);
   return { reachedGuilds, unique: recipients.size, sent, failed };
@@ -191,6 +208,15 @@ async function sendNotifications(event, recipients) {
 export async function handleNotifyButton(interaction) {
   const [, action, rawId] = interaction.customId.split(':');
   const eventId = Number(rawId);
+
+  // Le bouton n'est plus proposé, mais d'anciens messages éphémères peuvent
+  // encore en contenir un : on répond sans rien envoyer.
+  if (NOTIFY_SUSPENDED) {
+    await interaction
+      .reply({ content: SUSPENDED_MESSAGE, ephemeral: true })
+      .catch(() => {});
+    return;
+  }
 
   // Acquittement adapté À L'ACTION avant tout appel API (règle des 3 s Discord) :
   //  - cancel : édition immédiate du message (aucun appel réseau) ;

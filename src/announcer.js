@@ -161,10 +161,17 @@ async function poll(client) {
     setNotifiedAt(event.id, reqAt);
     try {
       const summary = await runNotify(client, event);
-      console.log(
-        `📨 Notifications MP event #${event.id} : ${summary.sent} envoyé(s), ` +
-          `${summary.unique} membre(s) uniques sur ${summary.reachedGuilds} serveur(s).`
-      );
+      if (summary.suspended) {
+        console.log(
+          `⏸️ Notifications MP event #${event.id} : demande ignorée, ` +
+            'fonctionnalité suspendue.'
+        );
+      } else {
+        console.log(
+          `📨 Notifications MP event #${event.id} : ${summary.sent} envoyé(s), ` +
+            `${summary.unique} membre(s) uniques sur ${summary.reachedGuilds} serveur(s).`
+        );
+      }
     } catch (err) {
       console.error(`Notifications MP event #${event.id} échouées :`, err.message);
     }
