@@ -215,6 +215,30 @@ export async function setMemberRole(token, memberId, role) {
   return data;
 }
 
+// ── Confirmation de participation ──
+
+/**
+ * Demandes de confirmation à envoyer. Comme pour les mentions, l'appel marque
+ * le lot comme sollicité côté API : à n'appeler que juste avant l'envoi réel.
+ */
+export async function getPendingConfirmations(limit = 25) {
+  const { data } = await http.get('/bot/confirmations/pending', {
+    headers: botHeaders(),
+    params: { limit }
+  });
+  return Array.isArray(data?.confirmations) ? data.confirmations : [];
+}
+
+/** Enregistre la réponse du candidat : 'confirm' ou 'decline'. */
+export async function answerConfirmation(participationId, answer) {
+  const { data } = await http.post(
+    `/bot/confirmations/${participationId}`,
+    { answer },
+    { headers: botHeaders() }
+  );
+  return data;
+}
+
 // ── Mentions du chat (notification MP) ──
 
 /**

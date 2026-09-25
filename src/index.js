@@ -5,6 +5,10 @@ import { handleEventButton } from './buttons.js';
 import { handleNotifyButton, handleDmButton } from './notifier.js';
 import { startAnnouncer } from './announcer.js';
 import { startMentionNotifier } from './mentionNotifier.js';
+import {
+  startConfirmationNotifier,
+  handleConfirmButton
+} from './confirmationNotifier.js';
 
 const client = new Client({
   // GuildMembers (intent PRIVILÉGIÉ) est requis pour énumérer les membres d'un
@@ -25,6 +29,7 @@ client.once(Events.ClientReady, (c) => {
   console.log(`🌐 API Party-cipate : ${config.apiUrl}`);
   startAnnouncer(c);
   startMentionNotifier(c);
+  startConfirmationNotifier(c);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -55,6 +60,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
       } else if (id.startsWith('dm:')) {
         // Boutons présents dans les MP de notification (côté membre).
         await handleDmButton(interaction);
+      } else if (id.startsWith('confirm:')) {
+        // Confirmation de participation d'un candidat retenu (MP).
+        await handleConfirmButton(interaction);
       }
     } catch (err) {
       console.error('Erreur bouton :', err);
