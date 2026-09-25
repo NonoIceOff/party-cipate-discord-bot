@@ -101,8 +101,12 @@ export async function handleConfirmButton(interaction) {
 
   await interaction.deferUpdate().catch(() => {});
 
+  let reponse;
   try {
-    await answerConfirmation(participationId, action === 'yes' ? 'confirm' : 'decline');
+    reponse = await answerConfirmation(
+      participationId,
+      action === 'yes' ? 'confirm' : 'decline'
+    );
   } catch (err) {
     await interaction
       .editReply({ content: formatApiError(err), components: [] })
@@ -119,4 +123,35 @@ export async function handleConfirmButton(interaction) {
     );
   // On retire les boutons : la réponse est définitive côté organisateur.
   await interaction.editReply({ embeds: [embed], components: [] }).catch(() => {});
+
+  // L'adresse du serveur n'est jamais publiée sur le site : ce MP est le canal
+  // prévu pour la transmettre, et la confirmation est le moment où le candidat
+  // en a besoin. L'API ne la renvoie que sur un « je confirme ».
+  const serveur = reponse?.server;
+  if (action === 'yes' && serveur && (serveur.address || serveur.notes)) {
+    const info = new EmbedBuilder()
+      .setColor(0x22c55e)
+      .setTitle('🔌 Connexion au serveur')
+      .setDescription(
+        `Voici de quoi rejoindre **${serveur.event_name ?? 'le tournage'}**.`
+      );
+    if (serveur.address) {
+      // Bloc de code : copiable d'un appui sur mobile, et Discord n'y touche pas.
+      info.addFields({ name: 'Adresse', value: `\`${serveur.address}\`` });
+    }
+    if (serveur.notes) {
+      info.addFields({ name: 'À savoir', value: serveur.notes.slice(0, 1024) });
+    }
+    info.setFooter({ text: 'Garde cette adresse pour toi.' });
+
+    // En MP l'envoi peut échouer (MP refermés entre-temps) : on le signale sans
+    // faire échouer la confirmation, qui est déjà enregistrée.
+    try {
+      await interaction.user.send({ embeds: [info] });
+    } catch (err) {
+      console.error(
+        `Confirmation #${participationId} : adresse non transmise (${err.message}).`
+      );
+    }
+  }
 }
