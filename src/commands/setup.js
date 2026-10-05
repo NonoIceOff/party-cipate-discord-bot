@@ -11,13 +11,15 @@ import { listProductions } from '../api.js';
 import { PERM, formatApiError } from '../errors.js';
 import {
   setGuildProductions,
-  setAnnouncementChannel,
+  setProductionChannel,
   clearGuildProductions,
   clearAnnouncementChannel,
   getGuildProductions
 } from '../store.js';
 
-const CHANNEL_ID = 'setup:chan';
+// Un salon par production : l'identifiant du composant porte la production
+// concernée, ce qui évite de transporter l'avancement de l'assistant ailleurs.
+const CHANNEL_PREFIX = 'setup:chan:';
 const DISCONNECT_VALUE = '__disconnect__';
 const ACCENT = 0xa855f7;
 
@@ -57,27 +59,59 @@ function disconnectedEmbed() {
     );
 }
 
-function stepChannelEmbed(productionNames) {
-  const names = productionNames.map((n) => `**${n}**`).join(', ');
+/**
+ * Étape « salon » pour UNE production. Avec plusieurs productions connectées,
+ * l'assistant repasse ici une fois par production : c'est ce qui permet de les
+ * annoncer dans des salons différents.
+ */
+function stepChannelEmbed(prod, rang, total) {
+  const etape = 1 + rang + 1; // étape 1 = choix des productions
+  const totalEtapes = 1 + total;
+  const intro =
+    total > 1
+      ? `Un salon par production — ${rang + 1}ᵉ sur ${total}.\n\n`
+      : '';
+  const actuel = prod.channelId ? `\n\n_Actuellement : <#${prod.channelId}>_` : '';
   return new EmbedBuilder()
     .setColor(ACCENT)
-    .setTitle('⚙️ Configuration — Étape 2/2')
+    .setTitle(`⚙️ Configuration — Étape ${etape}/${totalEtapes}`)
     .setDescription(
-      `Productions : ${names}\n\n` +
-        'Choisis maintenant le **salon** où poster les annonces de nouveaux événements.'
+      intro +
+        `Dans quel **salon** annoncer les événements de **${prod.productionName ?? prod.productionId}** ?` +
+        actuel
     );
 }
 
-function doneEmbed(productions, channelId) {
+function doneEmbed(productions) {
+  const lignes = productions
+    .map((p) => {
+      const nom = p.productionName ?? p.productionId;
+      return p.channelId
+        ? `• **${nom}** → <#${p.channelId}>`
+        : `• **${nom}** → _aucun salon, rien ne sera annoncé_`;
+    })
+    .join('\n');
   return new EmbedBuilder()
     .setColor(0x22c55e)
     .setTitle('✅ Configuration terminée')
     .setDescription(
-      `Productions connectées : ${formatProdNames(productions)}\n` +
-        `Salon d’annonces : <#${channelId}>\n\n` +
-        'Les nouveaux événements de ces productions seront automatiquement annoncés ici.\n' +
+      `${lignes}\n\n` +
+        'Les nouveaux événements seront annoncés dans le salon de leur production.\n' +
         '_Pour reconfigurer ou déconnecter : relance `/setup`._'
     );
+}
+
+/** Menu de choix du salon pour une production, salon actuel présélectionné. */
+function channelRow(prod) {
+  const menu = new ChannelSelectMenuBuilder()
+    .setCustomId(`${CHANNEL_PREFIX}${prod.productionId}`)
+    .setPlaceholder('Sélectionne le salon d’annonces…')
+    .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+    .setMinValues(1)
+    .setMaxValues(1);
+  // Présélectionner l'existant : reconduire un salon ne coûte qu'un clic.
+  if (prod.channelId) menu.setDefaultChannels(prod.channelId);
+  return new ActionRowBuilder().addComponents(menu);
 }
 
 export async function execute(interaction) {
@@ -198,24 +232,19 @@ export async function handleComponent(interaction) {
     // qu'ajouter le salon (évite de transporter les ids dans le customId).
     setGuildProductions(interaction.guildId, selected);
 
-    const row = new ActionRowBuilder().addComponents(
-      new ChannelSelectMenuBuilder()
-        .setCustomId(CHANNEL_ID)
-        .setPlaceholder('Sélectionne le salon d’annonces…')
-        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
-        .setMinValues(1)
-        .setMaxValues(1)
-    );
-
+    // On redemande le salon de CHAQUE production, l'actuel présélectionné :
+    // c'est aussi comme ça qu'on en change un sans tout refaire.
+    const prods = getGuildProductions(interaction.guildId);
     await interaction.update({
-      embeds: [stepChannelEmbed(selected.map((s) => s.name))],
-      components: [row]
+      embeds: [stepChannelEmbed(prods[0], 0, prods.length)],
+      components: [channelRow(prods[0])]
     });
     return;
   }
 
-  // Étape 2 → l'utilisateur a choisi le salon : on enregistre le salon.
-  if (interaction.customId === CHANNEL_ID) {
+  // Étapes suivantes → un salon choisi pour une production donnée.
+  if (interaction.customId.startsWith(CHANNEL_PREFIX)) {
+    const productionId = interaction.customId.slice(CHANNEL_PREFIX.length);
     const channelId = interaction.values?.[0];
 
     await interaction.deferUpdate();
@@ -230,24 +259,46 @@ export async function handleComponent(interaction) {
       return;
     }
 
-    // Vérifie que le bot peut écrire dans le salon choisi.
-    const channel = await interaction.guild?.channels?.fetch(channelId).catch(() => null);
-    const me = interaction.guild?.members?.me;
-    const perms = channel && me ? channel.permissionsFor(me) : null;
-    if (perms && !perms.has(PermissionFlagsBits.SendMessages)) {
+    const rang = productions.findIndex((p) => String(p.productionId) === productionId);
+    if (rang === -1) {
       await interaction.editReply({
-        content: PERM.botSendMessages(channelId),
+        content: '❌ Cette production n’est plus connectée au serveur, relance `/setup`.',
         embeds: [],
         components: []
       });
       return;
     }
 
-    setAnnouncementChannel(interaction.guildId, channelId);
+    // Vérifie que le bot peut écrire dans le salon choisi. Sans ce contrôle,
+    // la configuration paraîtrait réussie et aucune annonce n'arriverait.
+    const channel = await interaction.guild?.channels?.fetch(channelId).catch(() => null);
+    const me = interaction.guild?.members?.me;
+    const perms = channel && me ? channel.permissionsFor(me) : null;
+    if (perms && !perms.has(PermissionFlagsBits.SendMessages)) {
+      await interaction.editReply({
+        content: PERM.botSendMessages(channelId),
+        embeds: [stepChannelEmbed(productions[rang], rang, productions.length)],
+        components: [channelRow(productions[rang])]
+      });
+      return;
+    }
+
+    setProductionChannel(interaction.guildId, productionId, channelId);
+
+    // Production suivante, s'il en reste une.
+    const suivante = productions[rang + 1];
+    if (suivante) {
+      await interaction.editReply({
+        content: '',
+        embeds: [stepChannelEmbed(suivante, rang + 1, productions.length)],
+        components: [channelRow(suivante)]
+      });
+      return;
+    }
 
     await interaction.editReply({
       content: '',
-      embeds: [doneEmbed(productions, channelId)],
+      embeds: [doneEmbed(getGuildProductions(interaction.guildId))],
       components: []
     });
   }
