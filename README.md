@@ -40,23 +40,32 @@ Flux d'une commande :
 | `/supprimer-event <event>` | Supprime un de tes événements (avec confirmation). | Organisateur |
 | `/tirage <event>` | Lance le tirage au sort (avec confirmation). | Organisateur |
 | `/gestion` | Tableau de bord de tes événements créés (stats). | Tous |
-| `/setup` | Assistant unique : choisit la production puis le salon d'annonces (menus déroulants), ou déconnecte le serveur. | Admin serveur (Gérer le serveur) |
+| `/setup` | Assistant unique : choisit les productions puis **le salon de chacune** (menus déroulants), ou déconnecte le serveur. | Admin serveur (Gérer le serveur) |
 | `/recheck` | Repeuple les comptes party-cipate de tous les membres de tous les serveurs du bot (création via `/bot/auth/discord`, dédoublonné). | Admin serveur (Administrateur) |
 
 ### Annonces automatiques des nouveaux événements
 
 Un admin du serveur Discord lance **`/setup`** : un premier menu propose les
-productions Party-cipate, un second propose les salons texte du serveur. Le bot
-enregistre la production **et** le salon en une fois.
+productions Party-cipate, puis l'assistant demande **un salon par production**.
+
+C'est ce qui permet à un même serveur d'envoyer ses tournages dans un salon et
+ses lives dans un autre. Avec une seule production, l'assistant tient toujours
+en deux étapes. Choisir le même salon pour plusieurs productions reste
+possible — elles s'y retrouvent simplement ensemble.
 
 Tant que `/setup` n'a pas été fait, le bot **n'annonce rien**. Une fois configuré,
 il **surveille l'API toutes les 30 s** et publie automatiquement un message
-(embed + boutons S'inscrire / J'aime) dès qu'un nouvel événement **de la
-production connectée** est créé — qu'il vienne du launcher **ou** de
-`/creer-event`. Relance `/setup` puis « 🔌 Déconnecter ce serveur » pour couper les annonces.
+(embed + boutons S'inscrire / J'aime) dès qu'un nouvel événement est créé —
+qu'il vienne du launcher **ou** de `/creer-event` — **dans le salon de sa
+production**. Relance `/setup` puis « 🔌 Déconnecter ce serveur » pour couper
+les annonces.
 
-La config (production + salon par serveur, et dernier événement annoncé) est
-persistée dans `data/config.json`.
+Les serveurs configurés avant le salon par production gardent leur salon unique
+pour toutes leurs productions : rien ne change pour eux tant que `/setup` n'a
+pas été relancé.
+
+La config (productions et leurs salons, par serveur, et dernier événement
+annoncé) est persistée dans `data/config.json`.
 
 Les contrôles d'accès (admin, super-admin, propriétaire d'event) sont appliqués
 **côté API**. Les commandes d'événements utilisent les routes party-cipate

@@ -60,15 +60,6 @@ function save() {
 
 load();
 
-/** Définit le salon d'annonces des événements pour un serveur. */
-export function setAnnouncementChannel(guildId, channelId) {
-  state.guilds[guildId] = {
-    ...(state.guilds[guildId] || {}),
-    announcementChannelId: channelId
-  };
-  save();
-}
-
 /** Retire la config d'annonces d'un serveur. */
 export function clearAnnouncementChannel(guildId) {
   if (state.guilds[guildId]) {
@@ -77,38 +68,59 @@ export function clearAnnouncementChannel(guildId) {
   }
 }
 
-// Normalise les productions d'un serveur vers [{ id, name }], en gérant
-// l'ancien format mono-production (productionId / productionName).
+// Normalise les productions d'un serveur vers [{ id, name, channelId }].
+//
+// Chaque production a son propre salon d'annonces. Les configurations faites
+// avant cette possibilité n'en ont pas : elles retombent sur
+// `announcementChannelId`, le salon unique de l'ancien modèle. Rien ne change
+// pour elles tant que /setup n'a pas été relancé.
+//
+// Gère aussi l'ancien format mono-production (productionId / productionName).
 function normalizeGuildProductions(g) {
   if (!g) return [];
+  const repli = g.announcementChannelId || null;
   if (Array.isArray(g.productions)) {
     return g.productions
       .filter((p) => p && p.id != null)
-      .map((p) => ({ id: String(p.id), name: p.name || null }));
+      .map((p) => ({
+        id: String(p.id),
+        name: p.name || null,
+        channelId: p.channelId || repli
+      }));
   }
   if (g.productionId) {
-    return [{ id: String(g.productionId), name: g.productionName || null }];
+    return [{ id: String(g.productionId), name: g.productionName || null, channelId: repli }];
   }
   return [];
 }
 
 /**
- * Tous les salons d'annonces configurés, avec les productions éventuellement
- * connectées au serveur :
+ * Toutes les cibles d'annonces, groupées PAR SALON :
  * [{ guildId, channelId, productionIds: string[], productions: [{ id, name }] }].
+ *
+ * Un serveur peut en avoir plusieurs — une production pour les tournages dans
+ * un salon, une autre pour les lives dans un autre. Deux productions qui
+ * partagent le même salon forment une seule cible, pour n'ouvrir ce salon
+ * qu'une fois.
  */
 export function getAnnouncementChannels() {
-  return Object.entries(state.guilds)
-    .filter(([, g]) => g && g.announcementChannelId)
-    .map(([guildId, g]) => {
-      const productions = normalizeGuildProductions(g);
-      return {
-        guildId,
-        channelId: g.announcementChannelId,
-        productionIds: productions.map((p) => p.id),
-        productions
-      };
-    });
+  const cibles = [];
+  for (const [guildId, g] of Object.entries(state.guilds)) {
+    if (!g) continue;
+    const parSalon = new Map();
+    for (const prod of normalizeGuildProductions(g)) {
+      if (!prod.channelId) continue; // production sans salon : rien à annoncer
+      let cible = parSalon.get(prod.channelId);
+      if (!cible) {
+        cible = { guildId, channelId: prod.channelId, productionIds: [], productions: [] };
+        parSalon.set(prod.channelId, cible);
+      }
+      cible.productionIds.push(prod.id);
+      cible.productions.push({ id: prod.id, name: prod.name });
+    }
+    cibles.push(...parSalon.values());
+  }
+  return cibles;
 }
 
 /**
@@ -116,9 +128,22 @@ export function getAnnouncementChannels() {
  * productions : tableau de { id, name }.
  */
 export function setGuildProductions(guildId, productions) {
+  // Relancer /setup ne doit pas faire oublier les salons déjà choisis pour les
+  // productions qu'on reconduit.
+  const existants = new Map(
+    (state.guilds[guildId]?.productions || [])
+      .filter((p) => p && p.id != null)
+      .map((p) => [String(p.id), p.channelId || null])
+  );
   const list = (Array.isArray(productions) ? productions : [])
     .filter((p) => p && p.id != null)
-    .map((p) => ({ id: String(p.id), name: p.name || null }));
+    .map((p) => {
+      const id = String(p.id);
+      const entry = { id, name: p.name || null };
+      const salon = p.channelId || existants.get(id) || null;
+      if (salon) entry.channelId = salon;
+      return entry;
+    });
   state.guilds[guildId] = {
     ...(state.guilds[guildId] || {}),
     productions: list
@@ -139,11 +164,27 @@ export function clearGuildProductions(guildId) {
   }
 }
 
-/** Productions connectées à un serveur : [{ productionId, productionName }]. */
+/** Définit le salon d'annonces d'UNE production sur ce serveur. */
+export function setProductionChannel(guildId, productionId, channelId) {
+  const g = state.guilds[guildId];
+  if (!g || !Array.isArray(g.productions)) return false;
+  const prod = g.productions.find((p) => String(p?.id) === String(productionId));
+  if (!prod) return false;
+  prod.channelId = channelId;
+  save();
+  return true;
+}
+
+/**
+ * Productions connectées à un serveur :
+ * [{ productionId, productionName, channelId }].
+ * `channelId` est nul tant qu'aucun salon n'a été choisi pour cette production.
+ */
 export function getGuildProductions(guildId) {
   return normalizeGuildProductions(state.guilds[guildId]).map((p) => ({
     productionId: p.id,
-    productionName: p.name || null
+    productionName: p.name || null,
+    channelId: p.channelId || null
   }));
 }
 
