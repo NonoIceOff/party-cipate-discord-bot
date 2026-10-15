@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from 'discord.js';
 import { resolveUser } from '../api.js';
 
 export const data = new SlashCommandBuilder()
@@ -21,12 +21,12 @@ export async function execute(interaction) {
   if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
     await interaction.reply({
       content: '❌ Réservé aux administrateurs du serveur.',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
 
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   await interaction.editReply('🔄 Repeuplement en cours — parcours de tous les serveurs…');
 
   const client = interaction.client;

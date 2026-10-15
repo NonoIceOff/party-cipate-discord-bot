@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from 'discord.js';
 import { resolveUser, myParticipations, listEvents } from '../api.js';
 import { formatApiError } from '../errors.js';
 import { eventStatus } from '../events-ui.js';
@@ -8,7 +8,7 @@ export const data = new SlashCommandBuilder()
   .setDescription('Liste les événements auxquels tu es inscrit(e).');
 
 export async function execute(interaction) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   try {
     const { token, user } = await resolveUser(interaction.user);

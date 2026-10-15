@@ -5,7 +5,8 @@ import {
   StringSelectMenuBuilder,
   ChannelSelectMenuBuilder,
   ChannelType,
-  EmbedBuilder
+  EmbedBuilder,
+  MessageFlags
 } from 'discord.js';
 import { listProductions } from '../api.js';
 import { PERM, formatApiError } from '../errors.js';
@@ -118,17 +119,17 @@ export async function execute(interaction) {
   if (!interaction.guildId) {
     await interaction.reply({
       content: '❌ Cette commande s’utilise sur un serveur.',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
 
   if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-    await interaction.reply({ content: PERM.manageGuild, ephemeral: true });
+    await interaction.reply({ content: PERM.manageGuild, flags: MessageFlags.Ephemeral });
     return;
   }
 
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   let productions;
   try {
@@ -192,7 +193,7 @@ export async function handleComponent(interaction) {
     interaction.guildId &&
     !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)
   ) {
-    await interaction.reply({ content: PERM.manageGuild, ephemeral: true });
+    await interaction.reply({ content: PERM.manageGuild, flags: MessageFlags.Ephemeral });
     return;
   }
 

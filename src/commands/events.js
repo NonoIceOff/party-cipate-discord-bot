@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from 'discord.js';
 import { listEvents} from '../api.js';
 import { formatApiError } from '../errors.js';
 import { eventLine, isEventJoinable } from '../events-ui.js';
@@ -14,7 +14,7 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const onlyOpen = interaction.options.getBoolean('ouverts') ?? false;
 
   try {

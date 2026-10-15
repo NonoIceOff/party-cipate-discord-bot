@@ -1,3 +1,4 @@
+import { MessageFlags } from 'discord.js';
 import {
   resolveUser,
   participate,
@@ -32,7 +33,7 @@ export async function handleEventButton(interaction) {
 
   // Les confirmations destructives répondent par une mise à jour du message éphémère.
   const isConfirm = action === 'draw-yes' || action === 'delete-yes';
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   try {
     const { token, user } = await resolveUser(interaction.user);

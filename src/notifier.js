@@ -1,4 +1,4 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
 import { resolveUser, getEvent, participate, getParticipantDiscordIds } from './api.js';
 import { eventEmbed } from './events-ui.js';
 import { canManageEvent } from './permissions.js';
@@ -213,7 +213,7 @@ export async function handleNotifyButton(interaction) {
   // encore en contenir un : on répond sans rien envoyer.
   if (NOTIFY_SUSPENDED) {
     await interaction
-      .reply({ content: SUSPENDED_MESSAGE, ephemeral: true })
+      .reply({ content: SUSPENDED_MESSAGE, flags: MessageFlags.Ephemeral })
       .catch(() => {});
     return;
   }
@@ -227,7 +227,7 @@ export async function handleNotifyButton(interaction) {
     return;
   }
   if (action === 'ask') {
-    await interaction.deferReply({ ephemeral: true }).catch(() => {});
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(() => {});
   } else if (action === 'go') {
     await interaction.deferUpdate().catch(() => {});
   } else {

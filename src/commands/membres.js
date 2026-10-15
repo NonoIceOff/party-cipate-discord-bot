@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from 'discord.js';
 import { resolveUser, listMembers } from '../api.js';
 import { roleLabel } from '../roles.js';
 import { PERM, formatApiError } from '../errors.js';
@@ -8,7 +8,7 @@ export const data = new SlashCommandBuilder()
   .setDescription('Liste les membres Party-cipate et leurs rôles (admin).');
 
 export async function execute(interaction) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   try {
     const { token } = await resolveUser(interaction.user);

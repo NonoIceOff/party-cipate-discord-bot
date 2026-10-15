@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Events, Partials } from 'discord.js';
+import { Client, GatewayIntentBits, Events, Partials, MessageFlags } from 'discord.js';
 import { config } from './config.js';
 import { loadCommands } from './commands/index.js';
 import { handleEventButton } from './buttons.js';
@@ -106,7 +106,7 @@ async function safeReply(interaction, content) {
     if (interaction.deferred || interaction.replied) {
       await interaction.editReply(content);
     } else {
-      await interaction.reply({ content, ephemeral: true });
+      await interaction.reply({ content, flags: MessageFlags.Ephemeral });
     }
   } catch {
     /* l'interaction a peut-être expiré : on ignore. */

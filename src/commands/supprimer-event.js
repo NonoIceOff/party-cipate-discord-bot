@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder, MessageFlags } from 'discord.js';
 import { resolveUser, getEvent } from '../api.js';
 import { autocompleteEvents } from '../autocomplete.js';
 import { canManageEvent, getManageableEvents } from '../permissions.js';
@@ -24,7 +24,7 @@ export async function autocomplete(interaction) {
 }
 
 export async function execute(interaction) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const eventId = interaction.options.getInteger('event', true);
 
   try {
