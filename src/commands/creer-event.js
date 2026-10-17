@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder, MessageFlags } from 'discord.js';
 import { resolveUser, createEvent } from '../api.js';
 import { buildEventView } from '../event-view.js';
 import { parseEventDate } from '../events-ui.js';
@@ -48,7 +48,7 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const nom = interaction.options.getString('nom', true);
   const description = interaction.options.getString('description') || undefined;

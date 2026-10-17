@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder, MessageFlags } from 'discord.js';
 import { resolveUser, postMessage } from '../api.js';
 import { PERM, formatApiError } from '../errors.js';
 
@@ -14,7 +14,7 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const content = interaction.options.getString('message', true);
 
   try {

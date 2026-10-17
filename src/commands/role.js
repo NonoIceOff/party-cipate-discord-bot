@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder, MessageFlags } from 'discord.js';
 import { resolveUser, setMemberRole } from '../api.js';
 import { roleLabel } from '../roles.js';
 import { PERM, formatApiError } from '../errors.js';
@@ -22,7 +22,7 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const targetUser = interaction.options.getUser('membre', true);
   const role = interaction.options.getString('role', true);
 

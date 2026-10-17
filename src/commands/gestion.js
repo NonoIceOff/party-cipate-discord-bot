@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from 'discord.js';
 import { resolveUser } from '../api.js';
 import { formatApiError } from '../errors.js';
 import { getManageableEvents } from '../permissions.js';
@@ -9,7 +9,7 @@ export const data = new SlashCommandBuilder()
   .setDescription('Tableau de bord des événements que tu peux gérer.');
 
 export async function execute(interaction) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   try {
     const { token, user } = await resolveUser(interaction.user);

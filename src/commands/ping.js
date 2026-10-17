@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder, MessageFlags } from 'discord.js';
 
 export const data = new SlashCommandBuilder()
   .setName('ping')
@@ -7,6 +7,6 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction) {
   await interaction.reply({
     content: `Pong ! Latence : ${Math.round(interaction.client.ws.ping)} ms`,
-    ephemeral: true
+    flags: MessageFlags.Ephemeral
   });
 }
