@@ -1,91 +1,40 @@
 import { SlashCommandBuilder, MessageFlags } from 'discord.js';
-import { resolveUser, createEvent } from '../api.js';
-import { buildEventView } from '../event-view.js';
-import { parseEventDate } from '../events-ui.js';
+import { resolveUser, getMyProductions } from '../api.js';
 import { PERM, formatApiError } from '../errors.js';
+import { pages, reponseLien } from '../lien-gestion.js';
 
 export const data = new SlashCommandBuilder()
   .setName('creer-event')
-  .setDescription('Crée un nouvel événement Party-cipate.')
-  .addStringOption((o) =>
-    o.setName('nom').setDescription('Nom de l\'événement.').setRequired(true).setMaxLength(120)
-  )
-  .addStringOption((o) =>
-    o.setName('description').setDescription('Description courte.').setMaxLength(255)
-  )
-  .addStringOption((o) =>
-    o
-      .setName('description_complete')
-      .setDescription('Description détaillée.')
-      .setMaxLength(2000)
-  )
-  .addIntegerOption((o) =>
-    o
-      .setName('candidats')
-      .setDescription('Nombre de candidats à retenir au tirage (défaut : 1).')
-      .setMinValue(1)
-      .setMaxValue(999)
-  )
-  .addStringOption((o) =>
-    o
-      .setName('date')
-      .setDescription('Date et heure (ex: 2026-07-15 20:00).')
-      .setMaxLength(40)
-  )
-  .addStringOption((o) =>
-    o.setName('image').setDescription('URL d\'une image.').setMaxLength(500)
-  )
-  .addStringOption((o) =>
-    o
-      .setName('temps_de_tournage')
-      .setDescription('Durée de tournage (ex: 45 minutes).')
-      .setMaxLength(100)
-  )
-  .addBooleanOption((o) =>
-    o
-      .setName('ouvert')
-      .setDescription('Inscriptions ouvertes dès la création (défaut : oui).')
-  );
+  .setDescription('Ouvre le formulaire de création d\'un événement Party-cipate.');
 
+/**
+ * La création se fait sur le site : un évènement se choisit une émission, une
+ * image, des jours de disponibilité, des paramètres de version — rien de tout
+ * cela ne tient dans des options de commande.
+ *
+ * Le bot vérifie quand même le droit de créer : mieux vaut le dire ici que
+ * laisser quelqu'un remplir un formulaire qu'il ne pourra pas envoyer.
+ */
 export async function execute(interaction) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-  const nom = interaction.options.getString('nom', true);
-  const description = interaction.options.getString('description') || undefined;
-  const longDescription = interaction.options.getString('description_complete') || undefined;
-  const candidats = interaction.options.getInteger('candidats') || 1;
-  const dateRaw = interaction.options.getString('date');
-  const image = interaction.options.getString('image') || undefined;
-  const duration = interaction.options.getString('temps_de_tournage') || undefined;
-  const ouvert = interaction.options.getBoolean('ouvert');
-
-  const startsAt = parseEventDate(dateRaw);
-  if (dateRaw && !startsAt) {
-    await interaction.editReply(
-      '❌ Date invalide. Utilise un format comme `2026-07-15 20:00` ou `2026-07-15`.'
-    );
-    return;
-  }
-
   try {
-    const { token, user } = await resolveUser(interaction.user);
-    const event = await createEvent(token, {
-      name: nom,
-      description,
-      long_description: longDescription,
-      image_url: image,
-      duration,
-      starts_at: startsAt || undefined,
-      is_open: ouvert ?? true,
-      max_candidates: candidats
-    });
+    const { token } = await resolveUser(interaction.user);
+    const productions = await getMyProductions(token);
+    const autorisees = productions.filter((p) => p.can_create_events || p.is_chef);
 
-    const view = await buildEventView(event.id, { token, user });
-    await interaction.editReply({
-      content: `✅ Événement **${event.name}** créé (#${event.id}) !`,
-      embeds: view ? [view.embed] : [],
-      components: view ? view.components : []
-    });
+    if (!autorisees.length) {
+      await interaction.editReply(PERM.createEvent);
+      return;
+    }
+
+    await interaction.editReply(
+      reponseLien(
+        '🎬 La création se passe sur le site, où tu as tous les réglages sous la main :',
+        'Créer un évènement',
+        pages.creer()
+      )
+    );
   } catch (err) {
     await interaction.editReply(formatApiError(err, { fallback403: PERM.createEvent }));
   }

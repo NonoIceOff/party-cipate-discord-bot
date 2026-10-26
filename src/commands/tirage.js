@@ -3,11 +3,11 @@ import { resolveUser, getEvent } from '../api.js';
 import { autocompleteEvents } from '../autocomplete.js';
 import { canManageEvent, getManageableEvents } from '../permissions.js';
 import { PERM, formatApiError } from '../errors.js';
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { pages, reponseLien } from '../lien-gestion.js';
 
 export const data = new SlashCommandBuilder()
   .setName('tirage')
-  .setDescription('Lance le tirage au sort d\'un de tes événements.')
+  .setDescription('Ouvre la page de tirage au sort d\'un de tes événements.')
   .addIntegerOption((o) =>
     o
       .setName('event')
@@ -24,6 +24,13 @@ export async function autocomplete(interaction) {
   });
 }
 
+/**
+ * Le tirage se lance depuis la page des candidats.
+ *
+ * C'est irréversible et ça ferme les inscriptions : on veut voir la liste, les
+ * disponibilités et les pseudos en jeu avant d'appuyer — pas un simple bouton
+ * de confirmation dans un salon.
+ */
 export async function execute(interaction) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const eventId = interaction.options.getInteger('event', true);
@@ -44,20 +51,17 @@ export async function execute(interaction) {
       return;
     }
 
-    const winnerCount = Math.min(
+    const retenus = Math.min(
       Number(event.max_candidates) || 1,
       Number(event.participants_count) || 0
     );
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`evt:draw-yes:${eventId}`)
-        .setLabel('Confirmer le tirage')
-        .setStyle(ButtonStyle.Primary)
+    await interaction.editReply(
+      reponseLien(
+        `🎲 **${event.name}** : ${retenus} candidat(s) retenu(s) parmi ${event.participants_count ?? 0} demande(s). Le tirage se lance depuis la page des candidats :`,
+        'Gérer les candidats',
+        pages.candidats(event.id)
+      )
     );
-    await interaction.editReply({
-      content: `🎲 Lancer le tirage pour **${event.name}** ? ${winnerCount} candidat(s) retenu(s) parmi ${event.participants_count ?? 0} demande(s) de participation. Les inscriptions seront fermées.`,
-      components: [row]
-    });
   } catch (err) {
     await interaction.editReply(formatApiError(err, { fallback403: PERM.draw }));
   }

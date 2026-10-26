@@ -3,11 +3,11 @@ import { resolveUser, getEvent } from '../api.js';
 import { autocompleteEvents } from '../autocomplete.js';
 import { canManageEvent, getManageableEvents } from '../permissions.js';
 import { PERM, formatApiError } from '../errors.js';
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { pages, reponseLien } from '../lien-gestion.js';
 
 export const data = new SlashCommandBuilder()
   .setName('supprimer-event')
-  .setDescription('Supprime un de tes événements Party-cipate.')
+  .setDescription('Ouvre la page où supprimer un de tes événements.')
   .addIntegerOption((o) =>
     o
       .setName('event')
@@ -23,6 +23,12 @@ export async function autocomplete(interaction) {
   });
 }
 
+/**
+ * La suppression se confirme sur le site, dans la zone dangereuse de la page
+ * de modification : un geste définitif mérite d'être fait là où l'on voit ce
+ * qu'on supprime — nom, candidats inscrits, date — et non derrière un bouton
+ * Discord perdu dans un fil.
+ */
 export async function execute(interaction) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const eventId = interaction.options.getInteger('event', true);
@@ -39,17 +45,13 @@ export async function execute(interaction) {
       return;
     }
 
-    // Réutilise le flux de confirmation des boutons (evt:delete-yes).
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`evt:delete-yes:${eventId}`)
-        .setLabel('Confirmer la suppression')
-        .setStyle(ButtonStyle.Danger)
+    await interaction.editReply(
+      reponseLien(
+        `🗑️ Pour supprimer **${event.name}** (#${event.id}), ouvre sa page et descends jusqu'à la zone dangereuse :`,
+        'Ouvrir la page',
+        pages.modifier(event.id)
+      )
     );
-    await interaction.editReply({
-      content: `⚠️ Supprimer définitivement **${event.name}** (#${event.id}) ?`,
-      components: [row]
-    });
   } catch (err) {
     await interaction.editReply(formatApiError(err, { fallback403: PERM.deleteEvent }));
   }

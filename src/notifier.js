@@ -50,8 +50,11 @@ function isAllowedRecipient(member) {
 
 /**
  * Rangée de gestion contenant le bouton « Notifier par messages privés ».
- * Affichée dans la réponse (éphémère) de /modifier-event, donc réservée de fait
- * à l'organisateur — le droit est malgré tout revérifié au clic.
+ *
+ * Plus personne ne l'affiche depuis que /modifier-event renvoie au site : la
+ * fonction est conservée parce que la notification est suspendue, pas
+ * supprimée (voir NOTIFY_SUSPENDED), et qu'il faudra un bouton le jour où elle
+ * reprendra. Le droit reste revérifié au clic, pour les anciens messages.
  */
 export function notifyButtonRow(event) {
   return new ActionRowBuilder().addComponents(

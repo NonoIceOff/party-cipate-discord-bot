@@ -1,16 +1,7 @@
 import { MessageFlags } from 'discord.js';
-import {
-  resolveUser,
-  participate,
-  unparticipate,
-  likeEvent,
-  deleteEvent,
-  drawLottery,
-  getEvent
-} from './api.js';
+import { resolveUser, participate, unparticipate, likeEvent } from './api.js';
 import { buildEventView } from './event-view.js';
-import { canManageEvent } from './permissions.js';
-import { PERM, formatApiError } from './errors.js';
+import { formatApiError } from './errors.js';
 import { menuDisponibilites, texteDemande } from './disponibilites.js';
 import { texteConflits } from './dispo-core.js';
 
@@ -25,16 +16,14 @@ async function refreshMessage(interaction, eventId, ctx) {
   return view;
 }
 
-// Gère les boutons d'événement ouverts à tous : inscription, désinscription, J'aime.
-// Les confirmations de gestion (draw-yes / delete-yes) sont émises par les commandes
-// /tirage et /supprimer-event après contrôle des droits — l'API reste l'autorité finale.
+// Gère les boutons d'événement, qui sont tous ouverts à tous : inscription,
+// désinscription, J'aime. Le tirage et la suppression se font sur le site, où
+// l'on voit ce qu'on décide — les commandes correspondantes y renvoient.
 // customId : evt:<action>:<eventId>
 export async function handleEventButton(interaction) {
   const [, action, rawId] = interaction.customId.split(':');
   const eventId = Number(rawId);
 
-  // Les confirmations destructives répondent par une mise à jour du message éphémère.
-  const isConfirm = action === 'draw-yes' || action === 'delete-yes';
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   try {
@@ -89,55 +78,10 @@ export async function handleEventButton(interaction) {
         await interaction.editReply(`❤️ Merci pour ton J'aime sur **${view?.event?.name ?? `#${eventId}`}** !`);
         return;
       }
-      case 'draw-yes': {
-        const event = await getEvent(eventId);
-        if (!event) {
-          await interaction.editReply({ content: `❌ Événement #${eventId} introuvable.`, components: [] });
-          return;
-        }
-        if (!(await canManageEvent(token, user, event, 'can_draw'))) {
-          await interaction.editReply({ content: PERM.draw, components: [] });
-          return;
-        }
-        const result = await drawLottery(token, eventId);
-        await refreshMessage(interaction, eventId, ctx);
-        await interaction.editReply({
-          content: `🎬 Tirage effectué : ${result.winners_count ?? 0} candidat(s) retenu(s) !`,
-          components: []
-        });
-        return;
-      }
-      case 'delete-yes': {
-        const event = await getEvent(eventId);
-        if (!event) {
-          await interaction.editReply({ content: `❌ Événement #${eventId} introuvable.`, components: [] });
-          return;
-        }
-        if (!(await canManageEvent(token, user, event, 'can_edit_events'))) {
-          await interaction.editReply({ content: PERM.deleteEvent, components: [] });
-          return;
-        }
-        await deleteEvent(token, eventId);
-        // L'événement n'existe plus : on retire l'embed d'origine.
-        if (interaction.message?.editable) {
-          await interaction.message
-            .edit({ content: '🗑️ Événement supprimé.', embeds: [], components: [] })
-            .catch(() => {});
-        }
-        await interaction.editReply({ content: '🗑️ Événement supprimé.', components: [] });
-        return;
-      }
       default:
         await interaction.editReply('❌ Action inconnue.');
     }
   } catch (err) {
-    const fallback =
-      action === 'draw-yes' ? PERM.draw : action === 'delete-yes' ? PERM.deleteEvent : undefined;
-    const msg = formatApiError(err, { fallback403: fallback });
-    if (isConfirm) {
-      await interaction.editReply({ content: msg, components: [] });
-    } else {
-      await interaction.editReply(msg);
-    }
+    await interaction.editReply(formatApiError(err));
   }
 }

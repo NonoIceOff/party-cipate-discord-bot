@@ -1,29 +1,19 @@
 import { SlashCommandBuilder, MessageFlags } from 'discord.js';
-import { resolveUser, getEvent, updateEvent } from '../api.js';
-import { buildEventView } from '../event-view.js';
+import { resolveUser, getEvent } from '../api.js';
 import { autocompleteEvents } from '../autocomplete.js';
 import { canManageEvent, getManageableEvents } from '../permissions.js';
 import { PERM, formatApiError } from '../errors.js';
+import { pages, reponseLien } from '../lien-gestion.js';
 
 export const data = new SlashCommandBuilder()
   .setName('inscriptions')
-  .setDescription('Ouvre ou ferme les inscriptions d\'un de tes événements.')
+  .setDescription('Ouvre la page où ouvrir ou fermer les inscriptions d\'un événement.')
   .addIntegerOption((o) =>
     o
       .setName('event')
       .setDescription('L\'événement concerné.')
       .setRequired(true)
       .setAutocomplete(true)
-  )
-  .addStringOption((o) =>
-    o
-      .setName('etat')
-      .setDescription('Ouvrir ou fermer les inscriptions.')
-      .setRequired(true)
-      .addChoices(
-        { name: 'Ouvrir', value: 'open' },
-        { name: 'Fermer', value: 'close' }
-      )
   );
 
 export async function autocomplete(interaction) {
@@ -39,7 +29,6 @@ export async function autocomplete(interaction) {
 export async function execute(interaction) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const eventId = interaction.options.getInteger('event', true);
-  const open = interaction.options.getString('etat', true) === 'open';
 
   try {
     const { token, user } = await resolveUser(interaction.user);
@@ -52,20 +41,15 @@ export async function execute(interaction) {
       await interaction.editReply(PERM.inscriptions);
       return;
     }
-    if (event.draw_done) {
-      await interaction.editReply(
-        'ℹ️ Le tirage a déjà été effectué : les inscriptions ne peuvent plus changer.'
-      );
-      return;
-    }
 
-    await updateEvent(token, eventId, { is_open: open });
-    const view = await buildEventView(eventId, { token, user });
-    await interaction.editReply({
-      content: open ? '🟢 Inscriptions ouvertes.' : '🔒 Inscriptions fermées.',
-      embeds: view ? [view.embed] : [],
-      components: view ? view.components : []
-    });
+    const etat = event.is_open ? 'ouvertes 🟢' : 'fermées 🔒';
+    await interaction.editReply(
+      reponseLien(
+        `**${event.name}** : inscriptions ${etat} (${event.participants_count ?? 0} demande(s)). L'interrupteur est sur la page des candidats :`,
+        'Gérer les candidats',
+        pages.candidats(event.id)
+      )
+    );
   } catch (err) {
     await interaction.editReply(formatApiError(err, { fallback403: PERM.inscriptions }));
   }

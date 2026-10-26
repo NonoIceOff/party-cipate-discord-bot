@@ -17,6 +17,13 @@ export async function loadCommands() {
       console.warn(`⚠️  Commande ignorée (data/execute manquant) : ${file}`);
       continue;
     }
+    // Deux fichiers pour un même nom : la Map n'en garderait qu'un, en
+    // silence, et la commande se comporterait autrement qu'on ne le croit.
+    if (commands.has(mod.data.name)) {
+      console.warn(
+        `⚠️  Deux fichiers déclarent la commande « ${mod.data.name} » : ${file} écrase le précédent.`
+      );
+    }
     commands.set(mod.data.name, mod);
   }
   return commands;
