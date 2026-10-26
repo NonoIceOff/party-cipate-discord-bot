@@ -4,6 +4,7 @@ import {
   ButtonBuilder,
   ButtonStyle
 } from 'discord.js';
+import { versInstant } from './heures.js';
 
 // URL publique du site (pour le lien "Plus d'informations").
 const SITE_URL = (process.env.SITE_URL || 'https://party-cipate-next.vercel.app').replace(
@@ -39,11 +40,13 @@ export function parseEventDate(raw) {
   let s = String(raw).trim().replace(' ', 'T');
   // "2026-07-15" → ajoute une heure par défaut.
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) s += 'T00:00';
-  const d = new Date(s);
-  if (Number.isNaN(d.getTime())) return null;
-  const year = d.getFullYear();
+  // Une saisie sans fuseau est une heure de Paris, et non l'heure du fuseau
+  // dans lequel le bot se trouve être lancé.
+  const iso = versInstant(s);
+  if (!iso) return null;
+  const year = new Date(iso).getUTCFullYear();
   if (year < 2000 || year > 3000) return null;
-  return d.toISOString();
+  return iso;
 }
 
 export function eventStatus(event) {
