@@ -12,6 +12,7 @@ import { buildEventView } from './event-view.js';
 import { canManageEvent } from './permissions.js';
 import { PERM, formatApiError } from './errors.js';
 import { menuDisponibilites, texteDemande } from './disponibilites.js';
+import { texteConflits } from './dispo-core.js';
 
 // Met à jour le message d'origine (embed + boutons) après une action.
 async function refreshMessage(interaction, eventId, ctx) {
@@ -42,9 +43,15 @@ export async function handleEventButton(interaction) {
 
     switch (action) {
       case 'join': {
-        await participate(token, eventId);
+        const inscription = await participate(token, eventId);
         const view = await refreshMessage(interaction, eventId, ctx);
         const nom = view?.event?.name ?? `#${eventId}`;
+        const confirmation = [
+          `✅ Inscription confirmée à **${nom}** !`,
+          texteConflits(inscription?.conflits)
+        ]
+          .filter(Boolean)
+          .join('\n');
 
         // Date pas encore fixée : s'inscrire ne suffit pas, il faut dire quels
         // jours vont. On le demande dans la foulée, pendant qu'on l'a.
@@ -57,13 +64,13 @@ export async function handleEventButton(interaction) {
 
         if (menu) {
           await interaction.editReply({
-            content: `✅ Inscription confirmée à **${nom}** !\n\n${texteDemande(nom, menu)}`,
+            content: `${confirmation}\n\n${texteDemande(nom, menu)}`,
             components: [menu.row]
           });
           return;
         }
 
-        await interaction.editReply(`✅ Inscription confirmée à **${nom}** !`);
+        await interaction.editReply(confirmation);
         return;
       }
       case 'leave': {

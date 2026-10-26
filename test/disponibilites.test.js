@@ -13,6 +13,7 @@ import {
   estMenuDisponibilites,
   formatJour,
   precoche,
+  texteConflits,
   texteDemande
 } from '../src/dispo-core.js';
 
@@ -142,5 +143,17 @@ describe('construireMenu', () => {
     const [a, b] = menu.row.components[0].options;
     assert.equal(a.data.default, true);
     assert.equal(b.data.default, false);
+  });
+});
+
+describe('texteConflits', () => {
+  test('ne dit rien sans conflit', () => {
+    assert.equal(texteConflits([]), null);
+    assert.equal(texteConflits(undefined), null);
+  });
+
+  test('accorde le verbe au nombre de tournages', () => {
+    assert.match(texteConflits([{ id: 1, name: 'A' }]), /tombe sur/);
+    assert.match(texteConflits([{ id: 1, name: 'A' }, { id: 2, name: 'B' }]), /tombent sur/);
   });
 });

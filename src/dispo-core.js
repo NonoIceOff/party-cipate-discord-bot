@@ -119,6 +119,20 @@ export function estMenuDisponibilites(customId) {
   return typeof customId === 'string' && customId.startsWith(PREFIXE);
 }
 
+/**
+ * Avertissement quand d'autres tournages tombent sur le même créneau.
+ *
+ * L'API signale sans bloquer : c'est au candidat de savoir s'il peut
+ * enchaîner. Le taire reviendrait à le laisser découvrir le conflit le jour J.
+ */
+export function texteConflits(conflits) {
+  if (!conflits?.length) return null;
+  const noms = conflits.map((c) => `**${c.name}**`).join(', ');
+  return conflits.length === 1
+    ? `⚠️ Attention : ${noms} tombe sur le même créneau.`
+    : `⚠️ Attention : ${noms} tombent sur le même créneau.`;
+}
+
 /** Accusé de réception affiché après l'enregistrement. */
 export function texteConfirmation(nbDispo) {
   if (nbDispo === 0) return '✅ C\'est noté : aucun des jours proposés ne te convient.';

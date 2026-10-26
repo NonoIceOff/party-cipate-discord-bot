@@ -9,6 +9,7 @@ import { formatApiError } from '../errors.js';
 import { isEventJoinable } from '../events-ui.js';
 import { autocompleteEvents } from '../autocomplete.js';
 import { menuDisponibilites, texteDemande } from '../disponibilites.js';
+import { texteConflits } from '../dispo-core.js';
 
 export const data = new SlashCommandBuilder()
   .setName('inscription')
@@ -57,9 +58,14 @@ export async function execute(interaction) {
     const result = await participate(token, eventId);
 
     const deja = result?.message === 'Participation already exists';
-    const debut = deja
-      ? `ℹ️ Tu es déjà inscrit(e) à **${event.name}**.`
-      : `✅ Inscription confirmée à **${event.name}** !`;
+    const debut = [
+      deja
+        ? `ℹ️ Tu es déjà inscrit(e) à **${event.name}**.`
+        : `✅ Inscription confirmée à **${event.name}** !`,
+      texteConflits(result?.conflits)
+    ]
+      .filter(Boolean)
+      .join('\n');
 
     // Date pas encore fixée : l'inscription ne dit rien tant qu'on ne sait pas
     // quels jours vont au candidat. On le demande tout de suite, ici — c'est
