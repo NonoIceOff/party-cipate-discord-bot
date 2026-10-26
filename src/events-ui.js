@@ -5,12 +5,7 @@ import {
   ButtonStyle
 } from 'discord.js';
 import { versInstant } from './heures.js';
-
-// URL publique du site (pour le lien "Plus d'informations").
-const SITE_URL = (process.env.SITE_URL || 'https://party-cipate-next.vercel.app').replace(
-  /\/$/,
-  ''
-);
+import { SITE_URL } from './site.js';
 
 // Nombre maximum de candidatures listées dans l'embed (limite Discord 1024 car.).
 const MAX_LISTED = 20;
@@ -24,6 +19,9 @@ export function formatEventDate(iso) {
   const year = d.getFullYear();
   if (year < 2000 || year > 3000) return 'Date non précisée';
   return d.toLocaleString('fr-FR', {
+    // Les tournages ont lieu à Paris : l'affichage ne doit pas dépendre du
+    // fuseau de la machine qui fait tourner le bot.
+    timeZone: 'Europe/Paris',
     weekday: 'long',
     day: '2-digit',
     month: 'long',
@@ -31,6 +29,18 @@ export function formatEventDate(iso) {
     hour: '2-digit',
     minute: '2-digit'
   });
+}
+
+/**
+ * Date affichée pour un évènement.
+ *
+ * « Date indéterminée » n'est pas une date manquante : l'organisateur a
+ * volontairement laissé le choix aux candidats, et le dire invite à répondre
+ * au lieu de laisser croire à un oubli.
+ */
+export function libelleDate(event) {
+  if (event?.date_undetermined) return 'Date à définir — réponds avec `/dispo`';
+  return formatEventDate(event?.starts_at);
 }
 
 // Parse une date saisie en texte (ex: "2026-07-15 20:00", "2026-07-15").
@@ -66,7 +76,7 @@ export function eventLine(event) {
   return [
     `**#${event.id} — ${event.name}**`,
     `${eventStatus(event)} • 👥 ${event.participants_count ?? 0} demande(s) de participation${places}`,
-    event.starts_at ? `📅 ${formatEventDate(event.starts_at)}` : null
+    event.date_undetermined || event.starts_at ? `📅 ${libelleDate(event)}` : null
   ]
     .filter(Boolean)
     .join('\n');
@@ -126,7 +136,7 @@ export function eventEmbed(event, { participants } = {}) {
 
   fields.push({
     name: 'Date de tournage',
-    value: formatEventDate(event.starts_at),
+    value: libelleDate(event),
     inline: true
   });
 

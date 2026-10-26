@@ -2,6 +2,10 @@ import { Client, GatewayIntentBits, Events, Partials, MessageFlags } from 'disco
 import { config } from './config.js';
 import { loadCommands } from './commands/index.js';
 import { handleEventButton } from './buttons.js';
+import {
+  estMenuDisponibilites,
+  handleDisponibilitesSelect
+} from './disponibilites.js';
 import { handleNotifyButton, handleDmButton } from './notifier.js';
 import { startAnnouncer } from './announcer.js';
 import { startMentionNotifier } from './mentionNotifier.js';
@@ -33,7 +37,7 @@ client.once(Events.ClientReady, (c) => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
-  // Menus déroulants (flux guidé /setup : production + salon).
+  // Menus déroulants : flux guidé /setup, et choix des jours de disponibilité.
   if (interaction.isAnySelectMenu()) {
     if (interaction.customId.startsWith('setup:')) {
       const command = commands.get('setup');
@@ -41,6 +45,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await command?.handleComponent?.(interaction);
       } catch (err) {
         console.error('Erreur composant /setup :', err);
+        await safeReply(interaction, '❌ Une erreur est survenue.');
+      }
+    } else if (estMenuDisponibilites(interaction.customId)) {
+      try {
+        await handleDisponibilitesSelect(interaction);
+      } catch (err) {
+        console.error('Erreur menu disponibilités :', err);
         await safeReply(interaction, '❌ Une erreur est survenue.');
       }
     }

@@ -109,6 +109,29 @@ export async function participate(token, eventId) {
   return data;
 }
 
+/**
+ * Disponibilités du candidat sur un évènement à date indéterminée.
+ *
+ * Le jeton compte : sans lui l'API répond les jours proposés sans aucune
+ * réponse, et le menu s'afficherait vierge à quelqu'un qui a déjà répondu.
+ */
+export async function getMesDisponibilites(token, eventId) {
+  const { data } = await http.get(`/disponibilites/events/${eventId}/moi`, {
+    headers: userHeaders(token)
+  });
+  return data; // { date_undetermined, participation_id, jours }
+}
+
+/** Enregistre les réponses du candidat : { idJour: true|false }. */
+export async function repondreDisponibilites(token, eventId, reponses) {
+  const { data } = await http.put(
+    `/disponibilites/events/${eventId}/moi`,
+    { reponses },
+    { headers: userHeaders(token) }
+  );
+  return data;
+}
+
 /** Désinscrit l'utilisateur d'un événement. */
 export async function unparticipate(token, userId, eventId) {
   const { data } = await http.delete(
