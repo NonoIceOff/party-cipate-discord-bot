@@ -9,6 +9,7 @@ import {
 import { handleNotifyButton, handleDmButton } from './notifier.js';
 import { startAnnouncer } from './announcer.js';
 import { startMentionNotifier } from './mentionNotifier.js';
+import { startGameInviteNotifier } from './gameInviteNotifier.js';
 import {
   startConfirmationNotifier,
   handleConfirmButton
@@ -34,6 +35,7 @@ client.once(Events.ClientReady, (c) => {
   startAnnouncer(c);
   startMentionNotifier(c);
   startConfirmationNotifier(c);
+  startGameInviteNotifier(c);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {

@@ -132,6 +132,21 @@ export async function repondreDisponibilites(token, eventId, reponses) {
   return data;
 }
 
+/**
+ * Invitations à un salon de jeu, pas encore envoyées.
+ *
+ * ATTENTION : cet appel MARQUE le lot comme envoyé côté API. Il ne doit donc
+ * être fait que juste avant l'envoi réel. Relever sans envoyer perd les
+ * invitations ; envoyer sans marquer les renvoie à chaque tour de boucle, et
+ * en message privé c'est du harcèlement.
+ */
+export async function getPendingGameInvites(limit = 25) {
+  const { data } = await http.get(`/bot/jeux/invitations/pending?limit=${limit}`, {
+    headers: botHeaders()
+  });
+  return Array.isArray(data?.invitations) ? data.invitations : [];
+}
+
 /** Désinscrit l'utilisateur d'un événement. */
 export async function unparticipate(token, userId, eventId) {
   const { data } = await http.delete(
