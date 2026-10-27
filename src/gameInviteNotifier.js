@@ -18,7 +18,7 @@ const DM_DELAY_MS = 500;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Nom lisible d'un jeu, pour ne pas écrire « uno » en minuscules. */
-const NOMS_JEUX = { uno: 'Uno' };
+const NOMS_JEUX = { onu: 'ONU' };
 
 function nomJeu(id) {
   return NOMS_JEUX[id] ?? id;
